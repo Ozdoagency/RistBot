@@ -40,8 +40,8 @@ const sendSummaryToSecondBot = async (summary) => {
   const SECOND_BOT_TOKEN = "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";
   const SECOND_BOT_CHAT_ID = "4522204925"; // Уникальный ID чата второго бота
 
-  const apiUrl = `https://api.telegram.org/bot2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA/sendMessage`;
-
+  const apiUrl = `https://api.telegram.org/bot${SECOND_BOT_TOKEN}/sendMessage`;
+  
   try {
     const message = `
 📝 *Новая заявка:*
@@ -58,7 +58,7 @@ const sendSummaryToSecondBot = async (summary) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        chat_id: 4522204925,
+        chat_id: SECOND_BOT_CHAT_ID,
         text: message,
         parse_mode: "Markdown",
       }),
