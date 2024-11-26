@@ -38,10 +38,10 @@ const userState = {};
 
 const sendSummaryToSecondBot = async (summary) => {
   const SECOND_BOT_TOKEN = "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";
-  const SECOND_BOT_CHAT_ID = "4522204925"; // Уникальный ID чата второго бота
+  const SECOND_BOT_CHAT_ID = "4522204925"; // Укажите ID группового чата
 
   const apiUrl = `https://api.telegram.org/bot${SECOND_BOT_TOKEN}/sendMessage`;
-  
+
   try {
     const message = `
 📝 *Новая заявка:*
@@ -58,16 +58,25 @@ const sendSummaryToSecondBot = async (summary) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        chat_id: SECOND_BOT_CHAT_ID,
+        chat_id: GROUP_CHAT_ID, // Используем ID группы
         text: message,
         parse_mode: "Markdown",
       }),
     });
 
-    logger.info("Данные успешно отправлены во второй бот.");
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error(`Ошибка отправки в группу: ${response.status} - ${response.statusText}`);
+      throw new Error(`Ошибка при отправке данных в группу: ${response.status} - ${errorText}`);
+    }
+
+    logger.info("Данные успешно отправлены в группу.");
   } catch (error) {
-    logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
-    logger.info(`Формирование данных для второго бота: ${JSON.stringify(summary)}`);
+    logger.error(`Ошибка при отправке данных в группу: ${error.message}`);
+    logger.info(`Формирование данных для группы: ${JSON.stringify(summary)}`);
+  }
+};
+    
 if (!response.ok) {
   const errorText = await response.text();
   logger.error(`Ошибка отправки во второй бот: ${response.status} - ${response.statusText}`);
