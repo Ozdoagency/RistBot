@@ -386,7 +386,7 @@ async function generateResponse(userId, userMessage) {
       model: 'gpt-4',
       messages: userContext[userId],
       temperature: 0.7,
-      max_tokens: 1000,
+      max_tokens: 500,
     });
 
     const assistantMessage = response.data.choices[0].message.content;
