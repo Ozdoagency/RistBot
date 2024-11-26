@@ -49,6 +49,11 @@ const saveUserMessage = async (chatId, message) => {
   try {
     const db = getDb();
     const collection = db.collection('userMessages');
+
+    if (!chatId || !message) {
+      throw new Error('Отсутствует chatId или сообщение для сохранения.');
+    }
+
     await collection.updateOne(
       { userId: chatId },
       { $push: { messages: { content: message, timestamp: new Date() } } },
@@ -56,7 +61,7 @@ const saveUserMessage = async (chatId, message) => {
     );
     logger.info(`Сообщение "${message}" сохранено для пользователя ${chatId}`);
   } catch (error) {
-    logger.error(`Ошибка сохранения сообщения в MongoDB: ${error.message}`);
+    logger.error(`Ошибка сохранения сообщения в MongoDB для chatId ${chatId}: ${error.message}`);
   }
 };
 
@@ -118,9 +123,10 @@ const handleFollowUps = async (chatId) => {
       logger.info(`Фоллоу-апы запущены для пользователя ${chatId}`);
     }
   } catch (error) {
-    logger.error(`Ошибка при запуске фоллоу-апов для ${chatId}: ${error.message}`);
+    logger.error(`Ошибка при запуске фоллоу-апов для chatId ${chatId}: ${error.message}`);
   }
 };
+
 
 // Ваш SYSTEM_PROMPT
 const SYSTEM_PROMPT = `# РОЛЬ И ЗАДАЧА
@@ -232,13 +238,13 @@ function calculateTypingTime(text) {
 
 // Генерация ответа через OpenAI API
 async function generateResponse(userId, userMessage) {
-  if (!userContext[userId]) {
-    userContext[userId] = [{ role: "system", content: SYSTEM_PROMPT }];
-  }
-
-  userContext[userId].push({ role: "user", content: userMessage });
-
   try {
+    if (!userContext[userId]) {
+      userContext[userId] = [{ role: "system", content: SYSTEM_PROMPT }];
+    }
+
+    userContext[userId].push({ role: "user", content: userMessage });
+
     const response = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
       messages: userContext[userId],
@@ -250,10 +256,31 @@ async function generateResponse(userId, userMessage) {
     userContext[userId].push({ role: "assistant", content: assistantMessage });
     return assistantMessage;
   } catch (error) {
-    logger.error(`Ошибка OpenAI API: ${error.message}`);
+    logger.error(`Ошибка OpenAI API для userId ${userId}: ${error.message}`);
     return "Извините, произошла ошибка при обработке вашего запроса. Попробуйте снова позже.";
   }
 }
+
+// Функция для очистки старых сообщений
+const cleanupOldMessages = async (chatId) => {
+  try {
+    const db = getDb();
+    const collection = db.collection('userMessages');
+    const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 дней назад
+
+    if (!chatId) {
+      throw new Error('chatId отсутствует для очистки сообщений.');
+    }
+
+    await collection.updateOne(
+      { userId: chatId },
+      { $pull: { messages: { timestamp: { $lt: cutoffDate } } } }
+    );
+    logger.info(`Старые сообщения удалены для пользователя ${chatId}`);
+  } catch (error) {
+    logger.error(`Ошибка при очистке старых сообщений для chatId ${chatId}: ${error.message}`);
+  }
+};
 
 // Обработчик команды /start
 bot.onText(/\/start/, async (msg) => {
