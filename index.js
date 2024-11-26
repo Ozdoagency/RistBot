@@ -71,6 +71,9 @@ const sendSummaryToSecondBot = async (summary) => {
     }
 
     logger.info("Данные успешно отправлены в группу.");
+  } catch (error) {
+    logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
+  }
 };
     
 if (!response.ok) {
