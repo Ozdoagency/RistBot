@@ -413,15 +413,12 @@ bot.on("message", async (msg) => {
   }
 
   try {
-    // Убедитесь, что состояние пользователя есть
     const user = userState[chatId] || { stage: 0, data: {} };
     userState[chatId] = user;
 
-    // Сохраняем сообщение
     const userMessage = msg.text;
     await saveUserMessage(chatId, userMessage);
 
-    // Определяем, что делать на каждом этапе
     switch (user.stage) {
       case 0:
         user.data.goal = userMessage;
@@ -443,21 +440,17 @@ bot.on("message", async (msg) => {
         return;
     }
 
-    // Очистка старых сообщений
     await cleanupOldMessages(chatId);
-    logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
 
-    // Эффект "печатания" с задержкой перед генерацией ответа
-    bot.sendChatAction(chatId, "typing");
-    await new Promise((resolve) => setTimeout(resolve, getThinkingDelay()));
+    // Используем функцию simulateTyping
+    await simulateTyping(chatId, getThinkingDelay());
 
-    // Генерация ответа с использованием OpenAI API
     const response = await generateResponse(chatId, userMessage);
 
-    // Сохранение ответа в MongoDB
+    // Сохранение ответа
     try {
       const db = getDb();
-      const collection = db.collection('userContext');
+      const collection = db.collection("userContext");
       userContext[chatId].push({ role: "assistant", content: response });
       await collection.updateOne(
         { userId: chatId },
@@ -469,12 +462,10 @@ bot.on("message", async (msg) => {
       logger.error(`Ошибка сохранения ответа в MongoDB для chatId ${chatId}: ${error.message}`);
     }
 
-    // Отправка ответа с эффектом "печатания"
-    bot.sendChatAction(chatId, "typing");
-    await new Promise((resolve) => setTimeout(resolve, calculateTypingTime(response)));
+    // Отправка ответа
+    await simulateTyping(chatId, calculateTypingTime(response));
     await bot.sendMessage(chatId, response);
     logger.info(`Ответ отправлен пользователю ${chatId}: "${response}"`);
-
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от пользователя ${chatId}: ${error.message}`);
     try {
