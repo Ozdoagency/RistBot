@@ -193,10 +193,6 @@ const saveUserMessage = async (chatId, message) => {
   }
 };
 
-// Создание Express-сервера
-const app = express();
-const PORT = process.env.PORT || 3000; // Render назначает порт автоматически
-
 app.use(bodyParser.json());
 
 // Обработка POST-запросов от Telegram
