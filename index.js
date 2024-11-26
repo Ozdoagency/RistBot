@@ -257,7 +257,13 @@ async function generateResponse(userId, userMessage) {
 
 // Обработчик команды /start
 bot.onText(/\/start/, async (msg) => {
-  const chatId = msg.chat.id;
+  const chatId = msg.chat?.id;
+
+  if (!chatId) {
+    logger.error('chatId отсутствует в сообщении:', JSON.stringify(msg, null, 2));
+    return;
+  }
+
   const welcomeMessage =
     "Добрый день! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы получили вашу заявку на два бесплатных пробных урока по математике. Расскажите, какую цель вы хотите достичь с помощью занятий для вашего ребёнка? 🎯";
 
@@ -279,7 +285,12 @@ bot.onText(/\/start/, async (msg) => {
 
 // Обработчик сообщений
 bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
+  const chatId = msg.chat?.id;
+
+  if (!chatId) {
+    logger.error('chatId отсутствует в сообщении:', JSON.stringify(msg, null, 2));
+    return;
+  }
 
   if (msg.text.startsWith("/")) {
     // Игнорируем команды, кроме /start
@@ -334,3 +345,4 @@ bot.on("message", async (msg) => {
     await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте позже.");
   }
 });
+
