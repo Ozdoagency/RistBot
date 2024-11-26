@@ -5,7 +5,6 @@ const { sendFollowUps } = require('./followUps');
 const express = require('express');
 const bodyParser = require('body-parser');
 const winston = require('winston');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // Настройка логирования
 const logger = winston.createLogger({
@@ -73,14 +72,14 @@ const sendSummaryToSecondBot = async (summary) => {
 };
 
     const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: SECOND_BOT_CHAT_ID, // Используем ID группы
-        text: message,
-        parse_mode: "Markdown",
-      }),
-    });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    chat_id: SECOND_BOT_CHAT_ID, // Используем ID группы
+    text: message,
+    parse_mode: "Markdown",
+  }),
+});
 
     if (!response.ok) {
       const errorText = await response.text();
