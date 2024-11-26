@@ -404,7 +404,7 @@ bot.on("message", async (msg) => {
   const userMessage = msg.text;
 
   try {
-    await saveUserMessage(chatId, userMessage); // Перенос вызова внутрь асинхронной функции
+    await saveUserMessage(chatId, userMessage);
 
     switch (user.stage - 1) {
       case 0:
@@ -428,14 +428,8 @@ bot.on("message", async (msg) => {
     }
 
     await askNextQuestion(chatId, bot);
-    await cleanupOldMessages(chatId); // Перенос вызова внутрь асинхронной функции
-  } catch (error) {
-    logger.error(`Ошибка обработки сообщения для chatId ${chatId}: ${error.message}`);
-    await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте снова позже.");
-  }
-});
+    await cleanupOldMessages(chatId);
 
-  try {
     logger.info(`Получено сообщение от пользователя ${chatId}: "${userMessage}"`);
 
     // Очистка старых сообщений
