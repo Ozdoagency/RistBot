@@ -2,6 +2,8 @@ const TelegramBot = require('node-telegram-bot-api');
 const { Configuration, OpenAIApi } = require('openai');
 const { connectToMongoDB, getDb } = require('./mongodb'); // Импорт функций из mongodb.js
 const { sendFollowUps } = require('./followUps'); // Импорт фоллоу-апов
+const express = require('express'); // Для создания сервера
+const bodyParser = require('body-parser'); // Для обработки JSON
 const winston = require('winston');
 
 // Настройка логирования
@@ -22,10 +24,18 @@ const logger = winston.createLogger({
 // Прямое указание ключей
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA"; // Используем переменные окружения
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "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";
+const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://ristbot.onrender.com";
 
-// Создание бота
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
-logger.info('Бот успешно запущен.');
+// Создание бота с поддержкой вебхуков
+const bot = new TelegramBot(TELEGRAM_TOKEN, { webHook: true });
+logger.info('Бот запущен в режиме WebHook.');
+
+// Устанавливаем вебхук Telegram
+bot.setWebHook(`${WEBHOOK_URL}/webhook`).then(() => {
+  logger.info(`Webhook установлен: ${WEBHOOK_URL}/webhook`);
+}).catch((error) => {
+  logger.error(`Ошибка установки webhook: ${error.message}`);
+});
 
 // Инициализация OpenAI API
 const configuration = new Configuration({
@@ -50,33 +60,34 @@ const saveUserMessage = async (chatId, message) => {
   }
 };
 
-// Функция для очистки старых сообщений (старше 7 дней)
-const cleanupOldMessages = async (chatId) => {
-  try {
-    const db = getDb();
-    const collection = db.collection('userMessages');
-    const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 дней назад
+// Создание Express-сервера
+const app = express();
+const PORT = process.env.PORT || 3000; // Render назначает порт автоматически
 
-    await collection.updateOne(
-      { userId: chatId },
-      { $pull: { messages: { timestamp: { $lt: cutoffDate } } } }
-    );
-    logger.info(`Старые сообщения удалены для пользователя ${chatId}`);
-  } catch (error) {
-    logger.error(`Ошибка при очистке старых сообщений: ${error.message}`);
-  }
-};
+app.use(bodyParser.json());
 
-// Подключение к MongoDB перед запуском
+// Обработка запросов от Telegram
+app.post('/webhook', (req, res) => {
+  bot.processUpdate(req.body); // Передаём обновления от Telegram боту
+  res.sendStatus(200); // Подтверждаем получение
+});
+
+// Подключение к MongoDB перед запуском сервера
 (async () => {
   try {
-    await connectToMongoDB(); // Используем подключение из mongodb.js
+    await connectToMongoDB();
     logger.info('MongoDB подключена и готова к использованию.');
+
+    // Запуск Express-сервера
+    app.listen(PORT, () => {
+      logger.info(`Сервер запущен на порту ${PORT}`);
+    });
   } catch (error) {
-    logger.error(`Ошибка при подключении к MongoDB: ${error.message}`);
+    logger.error(`Ошибка подключения к MongoDB: ${error.message}`);
     process.exit(1);
   }
 })();
+
 
 // Хранение контекста для каждого пользователя
 const userContext = {};
