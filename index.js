@@ -180,15 +180,18 @@ app.get('/webhook', (req, res) => {
 // Подключение к MongoDB перед запуском сервера
 (async () => {
   try {
+    // Ваш код, например, подключение к MongoDB
     await connectToMongoDB();
-    logger.info('MongoDB подключена и готова к использованию.');
+    logger.info("MongoDB подключена и готова к использованию.");
 
-    // Запуск Express-сервера
+    // Логика Express сервера
     app.listen(PORT, () => {
       logger.info(`Сервер запущен на порту ${PORT}`);
     });
+
+    // Дополнительная логика, если есть
   } catch (error) {
-    logger.error(`Ошибка подключения к MongoDB: ${error.message}`);
+    logger.error(`Ошибка в основной функции: ${error.message}`);
     process.exit(1);
   }
 })();
@@ -409,13 +412,16 @@ bot.on("message", async (msg) => {
     return; // Игнорируем команды
   }
 
-  const user = userState[chatId] || { stage: 0, data: {} };
-  userState[chatId] = user;
-
   try {
+    // Убедитесь, что состояние пользователя есть
+    const user = userState[chatId] || { stage: 0, data: {} };
+    userState[chatId] = user;
+
+    // Сохраняем сообщение
     const userMessage = msg.text;
     await saveUserMessage(chatId, userMessage);
 
+    // Определяем, что делать на каждом этапе
     switch (user.stage) {
       case 0:
         user.data.goal = userMessage;
@@ -437,7 +443,9 @@ bot.on("message", async (msg) => {
         return;
     }
 
+    // Переходим к следующему вопросу
     await askNextQuestion(chatId, bot);
+
     logger.info(`Обработано сообщение для chatId ${chatId}: "${userMessage}"`);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от пользователя ${chatId}: ${error.message}`);
