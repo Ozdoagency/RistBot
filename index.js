@@ -32,6 +32,19 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
 const openai = new OpenAIApi(configuration);
 
+const lastMessages = {};
+
+const sendMessageWithCheck = async (chatId, message) => {
+  if (lastMessages[chatId] === message) {
+    logger.info(`Duplicate message detected for chatId ${chatId}, skipping send.`);
+    return;
+  }
+
+  await bot.sendMessage(chatId, message);
+  lastMessages[chatId] = message;
+  logger.info(`Message sent to chatId ${chatId}: ${message}`);
+};
+
 // Глобальные функции
 const userContext = {};
 const userState = {};
@@ -52,6 +65,12 @@ const sendSummaryToSecondBot = async (summary) => {
 5️⃣ *Номер телефона:* ${summary.phone || "Не указано"}
     `;
 
+    
+    await sendMessageWithCheck(SECOND_BOT_CHAT_ID, message);
+  } catch (error) {
+    logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
+  }
+};
     logger.info(`Отправка данных: ${message}`);
 
     const response = await fetch(apiUrl, {
