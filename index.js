@@ -413,12 +413,15 @@ bot.on("message", async (msg) => {
   }
 
   try {
+    // Убедитесь, что состояние пользователя есть
     const user = userState[chatId] || { stage: 0, data: {} };
     userState[chatId] = user;
 
+    // Сохраняем сообщение
     const userMessage = msg.text;
     await saveUserMessage(chatId, userMessage);
 
+    // Определяем, что делать на каждом этапе
     switch (user.stage) {
       case 0:
         user.data.goal = userMessage;
@@ -440,47 +443,14 @@ bot.on("message", async (msg) => {
         return;
     }
 
-    await cleanupOldMessages(chatId);
-
-    // Используем функцию simulateTyping
-    await simulateTyping(chatId, getThinkingDelay());
-
-    const response = await generateResponse(chatId, userMessage);
-
-    // Сохранение ответа
-    try {
-      const db = getDb();
-      const collection = db.collection("userContext");
-      userContext[chatId].push({ role: "assistant", content: response });
-      await collection.updateOne(
-        { userId: chatId },
-        { $set: { context: userContext[chatId] } },
-        { upsert: true }
-      );
-      logger.info(`Ответ для пользователя ${chatId} сохранён в MongoDB.`);
-    } catch (error) {
-      logger.error(`Ошибка сохранения ответа в MongoDB для chatId ${chatId}: ${error.message}`);
-    }
-
-    // Отправка ответа
-    await simulateTyping(chatId, calculateTypingTime(response));
-    await bot.sendMessage(chatId, response);
-    logger.info(`Ответ отправлен пользователю ${chatId}: "${response}"`);
-  } catch (error) {
-    logger.error(`Ошибка при обработке сообщения от пользователя ${chatId}: ${error.message}`);
-    try {
-      await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте позже.");
-    } catch (sendError) {
-      logger.error(`Ошибка отправки сообщения об ошибке для chatId ${chatId}: ${sendError.message}`);
-    }
     // Очистка старых сообщений
+    await cleanupOldMessages(chatId);
     logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
 
     // Эффект "печатания" с задержкой перед генерацией ответа
     bot.sendChatAction(chatId, "typing");
-    await new Promise((resolve) => setTimeout(resolve, getThinkingDelay()));
- }
-});
+    await new Promise((resolve) => setTimeout(resolve, getThinkingDelay())); // Задержка в правильном месте
+
     // Генерация ответа с использованием OpenAI API
     const response = await generateResponse(chatId, userMessage);
 
