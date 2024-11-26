@@ -22,7 +22,7 @@ const logger = winston.createLogger({
 });
 
 // Переменные окружения
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA"; // Используем переменные окружения
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "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";
 const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://ristbot.onrender.com";
 
@@ -68,6 +68,7 @@ app.use(bodyParser.json());
 
 // Обработка POST-запросов от Telegram
 app.post('/webhook', (req, res) => {
+  logger.info(`Получено обновление от Telegram: ${JSON.stringify(req.body)}`);
   bot.processUpdate(req.body); // Передаём обновления от Telegram боту
   res.sendStatus(200); // Подтверждаем получение
 });
