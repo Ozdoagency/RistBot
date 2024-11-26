@@ -32,6 +32,9 @@ const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
 const openai = new OpenAIApi(configuration);
 
 const lastMessages = {};
+const userContext = {};
+const userState = {};
+
 
 const sendMessageWithCheck = async (chatId, message) => {
   if (lastMessages[chatId] === message) {
@@ -44,9 +47,44 @@ const sendMessageWithCheck = async (chatId, message) => {
   logger.info(`Message sent to chatId ${chatId}: ${message}`);
 };
 
-// Глобальные функции
-const userContext = {};
-const userState = {};
+// Создание Express-сервера
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(bodyParser.json());
+
+// Обработка POST-запросов от Telegram
+app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
+  logger.info(`Получено обновление от Telegram: ${JSON.stringify(req.body)}`);
+  bot.processUpdate(req.body); // Передаём обновления от Telegram боту
+  res.sendStatus(200); // Подтверждаем получение
+});
+
+// Добавление проверки доступности сервера через GET
+app.get('/', (req, res) => {
+  res.send('Сервер работает! 🚀');
+});
+
+app.get('/webhook', (req, res) => {
+  res.send('Webhook ожидает POST-запросы от Telegram.');
+});
+
+// Подключение к MongoDB перед запуском сервера
+(async () => {
+  try {
+    await connectToMongoDB();
+    logger.info("MongoDB подключена и готова к использованию.");
+
+    // Логика Express сервера
+    app.listen(PORT, () => {
+      logger.info(`Сервер запущен на порту ${PORT}`);
+    });
+
+  } catch (error) {
+    logger.error(`Ошибка в основной функции: ${error.message}`);
+    process.exit(1);
+  }
+})();
 
 const sendSummaryToSecondBot = async (summary) => {
   const SECOND_BOT_TOKEN = "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";
