@@ -77,10 +77,14 @@ const sendSummaryToSecondBot = async (summary) => {
 };
     
 if (!response.ok) {
-  const errorText = await response.text();
-  logger.error(`Ошибка отправки во второй бот: ${response.status} - ${response.statusText}`);
-  throw new Error(`Ошибка при отправке данных: ${response.status} - ${errorText}`);
-
+  try {
+    const errorText = await response.text();
+    logger.error(`Ошибка отправки во второй бот: ${response.status} - ${response.statusText}`);
+    throw new Error(`Ошибка при отправке данных: ${response.status} - ${errorText}`);
+  } catch (error) {
+    logger.error(`Ошибка при обработке ответа: ${error.message}`);
+  }
+}
 
 /// Функция для обработки вопросов и этапов диалога
 const askNextQuestion = async (chatId, bot) => {
