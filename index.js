@@ -38,7 +38,7 @@ const userState = {};
 
 const sendSummaryToSecondBot = async (summary) => {
   const SECOND_BOT_TOKEN = "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";
-  const SECOND_BOT_CHAT_ID = "278210959"; // Уникальный ID чата второго бота
+  const SECOND_BOT_CHAT_ID = "2111920825"; // Уникальный ID чата второго бота
 
   const apiUrl = `https://api.telegram.org/bot${SECOND_BOT_TOKEN}/sendMessage`;
 
@@ -52,6 +52,8 @@ const sendSummaryToSecondBot = async (summary) => {
 5️⃣ *Номер телефона:* ${summary.phone || "Не указано"}
     `;
 
+    logger.info(`Отправка данных: ${message}`);
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -64,12 +66,15 @@ const sendSummaryToSecondBot = async (summary) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Ошибка при отправке данных во второй бот: ${errorText}`);
+      logger.error(`Ошибка отправки во второй бот: ${errorText}`);
+      throw new Error(`Ошибка при отправке данных: ${errorText}`);
     }
 
-    console.log("Данные успешно отправлены во второй бот.");
+    logger.info("Данные успешно отправлены во второй бот.");
   } catch (error) {
-    logger.error(`Ошибка при отправке данных второму боту: ${error.message}`);
+    logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
+    logger.info(`Формирование данных для второго бота: ${JSON.stringify(summary)}`);
+
   }
 };
 
@@ -95,13 +100,12 @@ const askNextQuestion = async (chatId, bot) => {
     } else {
       // Все данные собраны
       const summary = {
-        goal: user.data.goal || "Не указано",
-        grade: user.data.grade || "Не указано",
-        knowledge: user.data.knowledge || "Не указано",
-        date: user.data.date || "Не указано",
-        phone: user.data.phone || "Не указано",
-      };
-
+  goal: user.data.goal || "Не указано",
+  grade: user.data.grade || "Не указано",
+  knowledge: user.data.knowledge || "Не указано",
+  date: user.data.date || "Не указано",
+  phone: user.data.phone || "Не указано",
+};
       await sendSummaryToSecondBot(summary);
 
       // Благодарим пользователя
