@@ -169,15 +169,14 @@ app.get('/webhook', (req, res) => {
     // Запуск Express-сервера
     app.listen(PORT, () => {
       logger.info(`Сервер запущен на порту ${PORT}`);
+        logger.info("Данные успешно отправлены во второй бот.");
+  logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
     });
   } catch (error) {
     logger.error(`Ошибка подключения к MongoDB: ${error.message}`);
     process.exit(1);
   }
 })();
-
-   logger.info("Данные успешно отправлены во второй бот.");
-  logger.error(`Ошибка при отправке данных второму боту: ${error.message}`);
 
 // Запуск функции фоллоу-апов при необходимости
 const handleFollowUps = async (chatId) => {
