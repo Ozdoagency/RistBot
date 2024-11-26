@@ -178,8 +178,6 @@ app.get('/webhook', (req, res) => {
 
    logger.info("Данные успешно отправлены во второй бот.");
   logger.error(`Ошибка при отправке данных второму боту: ${error.message}`);
-  
-};
 
 // Запуск функции фоллоу-апов при необходимости
 const handleFollowUps = async (chatId) => {
