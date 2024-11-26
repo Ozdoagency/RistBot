@@ -49,10 +49,23 @@ const sendMessageWithCheck = async (chatId, message) => {
 
 // Создание Express-сервера
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 
 app.use(bodyParser.json());
 
+app.get('/', (req, res) => {
+  res.send('Сервер работает! 🚀');
+});
+
+// Проверка доступности порта
+app.listen(PORT, (err) => {
+  if (err) {
+    console.error(`Не удалось запустить сервер: ${err.message}`);
+    process.exit(1); // Завершаем процесс при ошибке
+  } else {
+    console.log(`Сервер запущен на порту ${PORT}`);
+  }
+});
 // Обработка POST-запросов от Telegram
 app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
   logger.info(`Получено обновление от Telegram: ${JSON.stringify(req.body)}`);
