@@ -336,7 +336,7 @@ async function generateResponse(userId, userMessage) {
     userContext[userId].push({ role: "user", content: userMessage });
 
     const response = await openai.createChatCompletion({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-4o',
       messages: userContext[userId],
       temperature: 0.7,
       max_tokens: 1000,
