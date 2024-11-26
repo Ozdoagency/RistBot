@@ -71,7 +71,6 @@ const sendSummaryToSecondBot = async (summary) => {
     }
 
     logger.info("Данные успешно отправлены в группу.");
-  } catch (error) {
     logger.error(`Ошибка при отправке данных в группу: ${error.message}`);
     logger.info(`Формирование данных для группы: ${JSON.stringify(summary)}`);
   }
