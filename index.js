@@ -1,11 +1,11 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { Configuration, OpenAIApi } = require('openai');
-const { connectToMongoDB, getDb } = require('./mongodb'); // Импорт функций из mongodb.js
-const { sendFollowUps } = require('./followUps'); // Импорт фоллоу-апов
+const { connectToMongoDB, getDb } = require('./mongodb');
+const { sendFollowUps } = require('./followUps');
 const express = require('express');
 const bodyParser = require('body-parser');
 const winston = require('winston');
-const fetch = require('node-fetch'); // Если версия Node.js < 18
+const fetch = require('node-fetch');
 
 // Настройка логирования
 const logger = winston.createLogger({
@@ -71,16 +71,13 @@ const sendSummaryToSecondBot = async (summary) => {
     }
 
     logger.info("Данные успешно отправлены в группу.");
-    logger.error(`Ошибка при отправке данных в группу: ${error.message}`);
-    logger.info(`Формирование данных для группы: ${JSON.stringify(summary)}`);
-  }
 };
     
 if (!response.ok) {
   const errorText = await response.text();
   logger.error(`Ошибка отправки во второй бот: ${response.status} - ${response.statusText}`);
   throw new Error(`Ошибка при отправке данных: ${response.status} - ${errorText}`);
-}
+
 
 /// Функция для обработки вопросов и этапов диалога
 const askNextQuestion = async (chatId, bot) => {
@@ -123,8 +120,6 @@ const askNextQuestion = async (chatId, bot) => {
   }
 };
 
-  }
-};
 const saveUserMessage = async (chatId, message) => {
   try {
     const db = getDb();
