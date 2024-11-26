@@ -1,0 +1,17 @@
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file .cache/replit/modules/nodejs-20","time":"2024-11-26T08:34:41Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file .cache/replit/modules/replit","time":"2024-11-26T08:34:41Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/download-msgpackr-prebuilds","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/mime","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/node-gyp-build-optional-packages","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/node-gyp-build-optional-packages-optional","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/node-gyp-build-optional-packages-test","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/nodemon","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/nodetouch","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/semver","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/sshpk-conv","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/sshpk-sign","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/sshpk-verify","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/.bin/uuid","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/bull/node_modules/.bin/uuid","time":"2024-11-26T08:34:42Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/nodemon/node_modules/.bin/semver","time":"2024-11-26T08:34:44Z"}
+{"error":".zip archives do not support non-regular files","level":"error","msg":"unable to write file node_modules/simple-update-notifier/node_modules/.bin/semver","time":"2024-11-26T08:34:44Z"}

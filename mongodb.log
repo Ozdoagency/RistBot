@@ -1,0 +1,9 @@
+2024-11-26T05:46:51.383Z [ERROR]: Ошибка подключения к MongoDB: 40A2D037847F0000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:1605:SSL alert number 80
+
+2024-11-26T05:55:01.781Z [ERROR]: Ошибка подключения к MongoDB: 4002C3D75A7F0000:error:0A000438:SSL routines:ssl3_read_bytes:tlsv1 alert internal error:ssl/record/rec_layer_s3.c:1605:SSL alert number 80
+
+2024-11-26T06:00:10.896Z [INFO]: Подключение к MongoDB успешно установлено.
+2024-11-26T06:04:21.455Z [INFO]: Подключение к MongoDB успешно установлено.
+2024-11-26T06:19:56.414Z [INFO]: Подключение к MongoDB успешно установлено.
+2024-11-26T06:31:23.868Z [INFO]: Подключение к MongoDB успешно установлено.
+2024-11-26T08:27:46.890Z [INFO]: Подключение к MongoDB успешно установлено.
