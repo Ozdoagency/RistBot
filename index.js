@@ -2,9 +2,10 @@ const TelegramBot = require('node-telegram-bot-api');
 const { Configuration, OpenAIApi } = require('openai');
 const { connectToMongoDB, getDb } = require('./mongodb'); // Импорт функций из mongodb.js
 const { sendFollowUps } = require('./followUps'); // Импорт фоллоу-апов
-const express = require('express'); // Для создания сервера
-const bodyParser = require('body-parser'); // Для обработки JSON
+const express = require('express');
+const bodyParser = require('body-parser');
 const winston = require('winston');
+const fetch = require('node-fetch'); // Если версия Node.js < 18
 
 // Настройка логирования
 const logger = winston.createLogger({
@@ -26,25 +27,96 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "7733244277:AAFa1YylutZKqaE
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "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";
 const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://ristbot.onrender.com";
 
-// Создание бота с поддержкой вебхуков
-const bot = new TelegramBot(TELEGRAM_TOKEN, { webHook: true });
-logger.info('Бот запущен в режиме WebHook.');
-
-// Устанавливаем вебхук Telegram
-bot.setWebHook(`${WEBHOOK_URL}/webhook`).then(() => {
-  logger.info(`Webhook установлен: ${WEBHOOK_URL}/webhook`);
-}).catch((error) => {
-  logger.error(`Ошибка установки webhook: ${error.message}`);
-});
-
-// Инициализация OpenAI API
-const configuration = new Configuration({
-  apiKey: OPENAI_API_KEY,
-});
+// Инициализация Telegram Bot и OpenAI
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
 const openai = new OpenAIApi(configuration);
-logger.info('OpenAI API инициализирован.');
 
-// Функция для сохранения сообщений пользователя
+// Глобальные функции
+const userContext = {};
+const userState = {};
+
+const sendSummaryToSecondBot = async (summary) => {
+  const SECOND_BOT_TOKEN = "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";
+  const SECOND_BOT_CHAT_ID = "278210959"; // Уникальный ID чата второго бота
+
+  const apiUrl = `https://api.telegram.org/bot${SECOND_BOT_TOKEN}/sendMessage`;
+
+  try {
+    const message = `
+📝 *Новая заявка:*
+1️⃣ *Цели обучения:* ${summary.goal || "Не указано"}
+2️⃣ *Класс ученика:* ${summary.grade || "Не указано"}
+3️⃣ *Уровень знаний:* ${summary.knowledge || "Не указано"}
+4️⃣ *Дата и время:* ${summary.date || "Не указано"}
+5️⃣ *Номер телефона:* ${summary.phone || "Не указано"}
+    `;
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: SECOND_BOT_CHAT_ID,
+        text: message,
+        parse_mode: "Markdown",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ошибка при отправке данных во второй бот: ${errorText}`);
+    }
+
+    console.log("Данные успешно отправлены во второй бот.");
+  } catch (error) {
+    logger.error(`Ошибка при отправке данных второму боту: ${error.message}`);
+  }
+};
+
+/// Функция для обработки вопросов и этапов диалога
+const askNextQuestion = async (chatId, bot) => {
+  // Инициализация состояния пользователя, если его ещё нет
+  const user = userState[chatId] || { stage: 0, data: {} };
+  userState[chatId] = user;
+
+  const stages = [
+    "Расскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий для вашего ребёнка? Например, устранить пробелы в знаниях, повысить оценки, подготовиться к экзаменам. 🎯",
+    "В каком классе учится ваш ребёнок? Это важно для подбора подходящей программы. 📚",
+    "Есть ли какие-то темы по математике, с которыми ваш ребёнок сталкивается с трудностями? Например, дроби, алгебра, геометрия? 🔢",
+    "Когда вашему ребёнку будет удобно пройти два бесплатных пробных урока? 🕒",
+    "Укажите, пожалуйста, ваш номер телефона для связи и отправки подтверждения. ☎️",
+  ];
+
+  try {
+    if (user.stage < stages.length) {
+      const question = stages[user.stage];
+      await bot.sendMessage(chatId, question);
+      user.stage += 1; // Переход к следующему этапу
+    } else {
+      // Все данные собраны
+      const summary = {
+        goal: user.data.goal || "Не указано",
+        grade: user.data.grade || "Не указано",
+        knowledge: user.data.knowledge || "Не указано",
+        date: user.data.date || "Не указано",
+        phone: user.data.phone || "Не указано",
+      };
+
+      await sendSummaryToSecondBot(summary);
+
+      // Благодарим пользователя
+      await bot.sendMessage(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
+
+      // Сбрасываем состояние пользователя
+      delete userState[chatId];
+    }
+  } catch (error) {
+    console.error(`Ошибка в askNextQuestion для chatId ${chatId}: ${error.message}`);
+  }
+};
+
+  }
+};
 const saveUserMessage = async (chatId, message) => {
   try {
     const db = getDb();
@@ -59,6 +131,7 @@ const saveUserMessage = async (chatId, message) => {
       { $push: { messages: { content: message, timestamp: new Date() } } },
       { upsert: true }
     );
+
     logger.info(`Сообщение "${message}" сохранено для пользователя ${chatId}`);
   } catch (error) {
     logger.error(`Ошибка сохранения сообщения в MongoDB для chatId ${chatId}: ${error.message}`);
@@ -102,72 +175,6 @@ app.get('/webhook', (req, res) => {
     process.exit(1);
   }
 })();
-
-// Хранение контекста для каждого пользователя
-const userContext = {};
-
-// Хранение состояния пользователей для сбора данных
-const userState = {};
-
-const sendSummaryToSecondBot = async (summary) => {
-  const SECOND_BOT_TOKEN = "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";
-  const SECOND_BOT_CHAT_ID = "278210959"; // ID чата второго бота
-
-  const apiUrl = `https://api.telegram.org/bot${SECOND_BOT_TOKEN}/sendMessage`;
-
-  try {
-    const message = 📝 Новая заявка: 1️⃣ Цели обучения: ${summary.goal || "Не указано"} 2️⃣ Класс ученика: ${summary.grade || "Не указано"} 3️⃣ Уровень знаний: ${summary.knowledge || "Не указано"} 4️⃣ Дата и время: ${summary.date || "Не указано"} 5️⃣ Номер телефона: ${summary.phone || "Не указано"} `;`
-   const response = await fetch(apiUrl, {
-     method: "POST",
-     headers: { "Content-Type": "application/json" },
-     body: JSON.stringify({
-       chat_id: SECOND_BOT_CHAT_ID,
-       text: message,
-       parse_mode: "Markdown",
-     }),
-   });
-
-  const askNextQuestion = async (chatId, bot) => {
-  const user = userState[chatId];
-
-  if (!user) {
-    userState[chatId] = { stage: 0, data: {} }; // Инициализируем пользователя
-  }
-
-  const stages = [
-    "Расскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий для вашего ребёнка? Например, устранить пробелы в знаниях, повысить оценки, подготовиться к экзаменам. 🎯",
-    "В каком классе учится ваш ребёнок? Это важно для подбора подходящей программы. 📚",
-    "Есть ли какие-то темы по математике, с которыми ваш ребёнок сталкивается с трудностями? Например, дроби, алгебра, геометрия? 🔢",
-    "Когда вашему ребёнку будет удобно пройти два бесплатных пробных урока? 🕒",
-    "Укажите, пожалуйста, ваш номер телефона для связи и отправки подтверждения. ☎️",
-  ];
-
-  if (user.stage < stages.length) {
-    const question = stages[user.stage];
-    await bot.sendMessage(chatId, question);
-    user.stage += 1; // Переходим к следующему этапу
-  } else {
-    // Все данные собраны, отправляем их в другой бот
-    const summary = {
-      goal: user.data.goal,
-      grade: user.data.grade,
-      knowledge: user.data.knowledge,
-      date: user.data.date,
-      phone: user.data.phone,
-    };
-
-    await bot.sendMessage(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
-    await sendSummaryToSecondBot(summary);
-
-    // Сбрасываем состояние
-    delete userState[chatId];
-  }
-};
-    
-   if (!response.ok) {
-     const errorText = await response.text();
-     throw new Error(`Ошибка при отправке данных во второй бот: ${errorText}`);
-   }
 
    logger.info("Данные успешно отправлены во второй бот.");
  } catch (error) {
@@ -364,7 +371,6 @@ bot.onText(/\/start/, async (msg) => {
     "Добрый день! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Чтобы начать запись на пробные занятия, я задам вам несколько вопросов. 😊";
 
   try {
-    // Отправляем приветственное сообщение
     await bot.sendMessage(chatId, welcomeMessage);
 
     // Инициализируем состояние пользователя
@@ -379,52 +385,6 @@ bot.onText(/\/start/, async (msg) => {
   }
 });
 
-// Функция для обработки вопросов и этапов диалога
-const askNextQuestion = async (chatId, bot) => {
-  const user = userState[chatId];
-
-  try {
-    const message = `
-
-  if (!user) {
-    userState[chatId] = { stage: 0, data: {} }; // Инициализируем пользователя
-  }
-
-  const stages = [
-    "Расскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий для вашего ребёнка? Например, устранить пробелы в знаниях, повысить оценки, подготовиться к экзаменам. 🎯",
-    "В каком классе учится ваш ребёнок? Это важно для подбора подходящей программы. 📚",
-    "Есть ли какие-то темы по математике, с которыми ваш ребёнок сталкивается с трудностями? Например, дроби, алгебра, геометрия? 🔢",
-    "Когда вашему ребёнку будет удобно пройти два бесплатных пробных урока? 🕒",
-    "Укажите, пожалуйста, ваш номер телефона для связи и отправки подтверждения. ☎️",
-  ];
-
-  if (user.stage < stages.length) {
-    const question = stages[user.stage];
-    await bot.sendMessage(chatId, question);
-    user.stage += 1; // Переходим к следующему этапу
-  } else {
-    // Все данные собраны, отправляем их в другой бот
-    const summary = `
-🎓 *Информация о клиенте:*
-1️⃣ Цель обучения: ${user.data.goal || "Не указано"}
-2️⃣ Класс ученика: ${user.data.grade || "Не указано"}
-3️⃣ Уровень знаний: ${user.data.knowledge || "Не указано"}
-4️⃣ Дата и время: ${user.data.date || "Не указано"}
-5️⃣ Номер телефона: ${user.data.phone || "Не указано"}
-    ;
-
-    await bot.sendMessage(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
-    await bot.sendMessage(
-      "2111920825", // ID бота, куда отправляем
-      summary,
-      { parse_mode: "Markdown" }
-    );
-
-    // Сбрасываем состояние
-    delete userState[chatId];
-  }
-};
-
 // Обработчик сообщений
 bot.on("message", async (msg) => {
   const chatId = msg.chat?.id;
@@ -434,20 +394,17 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  // Игнорируем команды, кроме /start
   if (msg.text?.startsWith("/")) {
-    return;
+    return; // Игнорируем команды
   }
 
   const user = userState[chatId];
   if (!user) {
-    // Если пользователь не начал диалог через /start, игнорируем сообщение
     await bot.sendMessage(chatId, "Пожалуйста, начните диалог с команды /start.");
     return;
   }
 
   try {
-    // Сохраняем ответ в зависимости от текущего этапа
     switch (user.stage - 1) {
       case 0:
         user.data.goal = msg.text;
@@ -469,7 +426,6 @@ bot.on("message", async (msg) => {
         return;
     }
 
-    // Переходим к следующему вопросу или завершаем диалог
     await askNextQuestion(chatId, bot);
   } catch (error) {
     logger.error(`Ошибка обработки сообщения для chatId ${chatId}: ${error.message}`);
