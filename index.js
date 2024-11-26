@@ -39,7 +39,7 @@ const sendMessageWithCheck = async (chatId, message) => {
     return;
   }
 
-  await bot.sendMessage(chatId, message);
+  await sendMessageWithCheck(chatId, message);
   lastMessages[chatId] = message;
   logger.info(`Message sent to chatId ${chatId}: ${message}`);
 };
@@ -109,26 +109,26 @@ const askNextQuestion = async (chatId, bot) => {
 
   try {
     if (user.stage < stages.length) {
-      const question = stages[user.stage];
-      await bot.sendMessage(chatId, question);
-      user.stage += 1; // Переход к следующему этапу
-    } else {
-      // Все данные собраны
-      const summary = {
-  goal: user.data.goal || "Не указано",
-  grade: user.data.grade || "Не указано",
-  knowledge: user.data.knowledge || "Не указано",
-  date: user.data.date || "Не указано",
-  phone: user.data.phone || "Не указано",
-};
-      await sendSummaryToSecondBot(summary);
+  const question = stages[user.stage];
+  await sendMessageWithCheck(chatId, question);
+  user.stage += 1; // Переход к следующему этапу
+  logger.info(`Этап обновлен для chatId ${chatId}: ${user.stage}`);
+} else {
+  const summary = {
+    goal: user.data.goal || "Не указано",
+    grade: user.data.grade || "Не указано",
+    knowledge: user.data.knowledge || "Не указано",
+    date: user.data.date || "Не указано",
+    phone: user.data.phone || "Не указано",
+  };
 
-      // Благодарим пользователя
-      await bot.sendMessage(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
+  logger.info(`Все этапы завершены для chatId ${chatId}. Отправляем данные.`);
+  await sendSummaryToSecondBot(summary);
 
-      // Сбрасываем состояние пользователя
-      delete userState[chatId];
-    }
+  // Благодарим пользователя и сбрасываем состояние
+  await sendMessageWithCheck(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
+  delete userState[chatId];
+}
   } catch (error) {
     console.error(`Ошибка в askNextQuestion для chatId ${chatId}: ${error.message}`);
   }
@@ -148,7 +148,14 @@ const saveUserMessage = async (chatId, message) => {
       { $push: { messages: { content: message, timestamp: new Date() } } },
       { upsert: true }
     );
-
+const existingMessage = await collection.findOne({
+  userId: chatId,
+  "messages.content": message,
+});
+if (existingMessage) {
+  logger.info(`Сообщение уже существует для chatId ${chatId}: ${message}`);
+  return;
+}
     logger.info(`Сообщение "${message}" сохранено для пользователя ${chatId}`);
   } catch (error) {
     logger.error(`Ошибка сохранения сообщения в MongoDB для chatId ${chatId}: ${error.message}`);
@@ -401,7 +408,7 @@ bot.on("message", async (msg) => {
   const chatId = msg.chat?.id;
 
   if (!chatId) {
-    logger.error('chatId отсутствует в сообщении:', JSON.stringify(msg, null, 2));
+    logger.error("chatId отсутствует в сообщении:", JSON.stringify(msg, null, 2));
     return;
   }
 
@@ -409,18 +416,15 @@ bot.on("message", async (msg) => {
     return; // Игнорируем команды
   }
 
-  const user = userState[chatId];
-  if (!user) {
-    await bot.sendMessage(chatId, "Пожалуйста, начните диалог с команды /start.");
-    return;
-  }
+  const user = userState[chatId] || { stage: 0, data: {} };
+  userState[chatId] = user;
 
   const userMessage = msg.text;
 
   try {
     await saveUserMessage(chatId, userMessage);
 
-    switch (user.stage - 1) {
+    switch (user.stage) {
       case 0:
         user.data.goal = userMessage;
         break;
@@ -442,9 +446,12 @@ bot.on("message", async (msg) => {
     }
 
     await askNextQuestion(chatId, bot);
-    await cleanupOldMessages(chatId);
-
-    logger.info(`Получено сообщение от пользователя ${chatId}: "${userMessage}"`);
+    logger.info(`Обработано сообщение для chatId ${chatId}: "${userMessage}"`);
+  } catch (error) {
+    logger.error(`Ошибка при обработке сообщения от пользователя ${chatId}: ${error.message}`);
+    await sendMessageWithCheck(chatId, "Произошла ошибка. Попробуйте позже.");
+  }
+});
 
     // Очистка старых сообщений
     logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
