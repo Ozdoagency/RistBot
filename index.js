@@ -443,13 +443,45 @@ bot.on("message", async (msg) => {
         return;
     }
 
-    // Переходим к следующему вопросу
-    await askNextQuestion(chatId, bot);
+    // Очистка старых сообщений
+    await cleanupOldMessages(chatId);
+    logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
 
-    logger.info(`Обработано сообщение для chatId ${chatId}: "${userMessage}"`);
+    // Эффект "печатания" с задержкой перед генерацией ответа
+    bot.sendChatAction(chatId, "typing");
+    await new Promise((resolve) => setTimeout(resolve, getThinkingDelay()));
+
+    // Генерация ответа с использованием OpenAI API
+    const response = await generateResponse(chatId, userMessage);
+
+    // Сохранение ответа в MongoDB
+    try {
+      const db = getDb();
+      const collection = db.collection('userContext');
+      userContext[chatId].push({ role: "assistant", content: response });
+      await collection.updateOne(
+        { userId: chatId },
+        { $set: { context: userContext[chatId] } },
+        { upsert: true }
+      );
+      logger.info(`Ответ для пользователя ${chatId} сохранён в MongoDB.`);
+    } catch (error) {
+      logger.error(`Ошибка сохранения ответа в MongoDB для chatId ${chatId}: ${error.message}`);
+    }
+
+    // Отправка ответа с эффектом "печатания"
+    bot.sendChatAction(chatId, "typing");
+    await new Promise((resolve) => setTimeout(resolve, calculateTypingTime(response)));
+    await bot.sendMessage(chatId, response);
+    logger.info(`Ответ отправлен пользователю ${chatId}: "${response}"`);
+
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от пользователя ${chatId}: ${error.message}`);
-    await sendMessageWithCheck(chatId, "Произошла ошибка. Попробуйте позже.");
+    try {
+      await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте позже.");
+    } catch (sendError) {
+      logger.error(`Ошибка отправки сообщения об ошибке для chatId ${chatId}: ${sendError.message}`);
+    }
   }
 });
 
