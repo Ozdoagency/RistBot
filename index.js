@@ -109,6 +109,72 @@ const userContext = {};
 // Хранение состояния пользователей для сбора данных
 const userState = {};
 
+const sendSummaryToSecondBot = async (summary) => {
+  const SECOND_BOT_TOKEN = "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";
+  const SECOND_BOT_CHAT_ID = "278210959"; // ID чата второго бота
+
+  const apiUrl = `https://api.telegram.org/bot${SECOND_BOT_TOKEN}/sendMessage`;
+
+  try {
+    const message = 📝 Новая заявка: 1️⃣ Цели обучения: ${summary.goal || "Не указано"} 2️⃣ Класс ученика: ${summary.grade || "Не указано"} 3️⃣ Уровень знаний: ${summary.knowledge || "Не указано"} 4️⃣ Дата и время: ${summary.date || "Не указано"} 5️⃣ Номер телефона: ${summary.phone || "Не указано"} `;`
+   const response = await fetch(apiUrl, {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({
+       chat_id: SECOND_BOT_CHAT_ID,
+       text: message,
+       parse_mode: "Markdown",
+     }),
+   });
+
+  const askNextQuestion = async (chatId, bot) => {
+  const user = userState[chatId];
+
+  if (!user) {
+    userState[chatId] = { stage: 0, data: {} }; // Инициализируем пользователя
+  }
+
+  const stages = [
+    "Расскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий для вашего ребёнка? Например, устранить пробелы в знаниях, повысить оценки, подготовиться к экзаменам. 🎯",
+    "В каком классе учится ваш ребёнок? Это важно для подбора подходящей программы. 📚",
+    "Есть ли какие-то темы по математике, с которыми ваш ребёнок сталкивается с трудностями? Например, дроби, алгебра, геометрия? 🔢",
+    "Когда вашему ребёнку будет удобно пройти два бесплатных пробных урока? 🕒",
+    "Укажите, пожалуйста, ваш номер телефона для связи и отправки подтверждения. ☎️",
+  ];
+
+  if (user.stage < stages.length) {
+    const question = stages[user.stage];
+    await bot.sendMessage(chatId, question);
+    user.stage += 1; // Переходим к следующему этапу
+  } else {
+    // Все данные собраны, отправляем их в другой бот
+    const summary = {
+      goal: user.data.goal,
+      grade: user.data.grade,
+      knowledge: user.data.knowledge,
+      date: user.data.date,
+      phone: user.data.phone,
+    };
+
+    await bot.sendMessage(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
+    await sendSummaryToSecondBot(summary);
+
+    // Сбрасываем состояние
+    delete userState[chatId];
+  }
+};
+    
+   if (!response.ok) {
+     const errorText = await response.text();
+     throw new Error(`Ошибка при отправке данных во второй бот: ${errorText}`);
+   }
+
+   logger.info("Данные успешно отправлены во второй бот.");
+ } catch (error) {
+   logger.error(`Ошибка при отправке данных второму боту: ${error.message}`);
+ }
+};
+
 // Запуск функции фоллоу-апов при необходимости
 const handleFollowUps = async (chatId) => {
   try {
@@ -302,7 +368,7 @@ bot.onText(/\/start/, async (msg) => {
     await bot.sendMessage(chatId, welcomeMessage);
 
     // Инициализируем состояние пользователя
-    userState[chatId] = { stage: 0, data: {} }; 
+    userState[chatId] = { stage: 0, data: {} };
 
     // Переходим к первому вопросу
     await askNextQuestion(chatId, bot);
@@ -313,10 +379,12 @@ bot.onText(/\/start/, async (msg) => {
   }
 });
 
-
 // Функция для обработки вопросов и этапов диалога
 const askNextQuestion = async (chatId, bot) => {
   const user = userState[chatId];
+
+  try {
+    const message = `
 
   if (!user) {
     userState[chatId] = { stage: 0, data: {} }; // Инициализируем пользователя
@@ -343,7 +411,7 @@ const askNextQuestion = async (chatId, bot) => {
 3️⃣ Уровень знаний: ${user.data.knowledge || "Не указано"}
 4️⃣ Дата и время: ${user.data.date || "Не указано"}
 5️⃣ Номер телефона: ${user.data.phone || "Не указано"}
-    `;
+    ;
 
     await bot.sendMessage(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
     await bot.sendMessage(
@@ -371,9 +439,8 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  const userMessage = msg.text;
-  
-if (!user) {
+  const user = userState[chatId];
+  if (!user) {
     // Если пользователь не начал диалог через /start, игнорируем сообщение
     await bot.sendMessage(chatId, "Пожалуйста, начните диалог с команды /start.");
     return;
@@ -409,6 +476,7 @@ if (!user) {
     await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте снова позже.");
   }
 });
+
 
   try {
     logger.info(`Получено сообщение от пользователя ${chatId}: "${userMessage}"`);
