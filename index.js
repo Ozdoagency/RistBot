@@ -279,7 +279,7 @@ bot.onText(/\/start/, async (msg) => {
     await bot.sendMessage(chatId, welcomeMessage);
     logger.info(`Приветственное сообщение отправлено пользователю ${chatId}`);
   } catch (error) {
-    logger.error(`Ошибка отправки приветственного сообщения: ${error.message}`);
+    logger.error(`Ошибка отправки приветственного сообщения для chatId ${chatId}: ${error.message}`);
   }
 });
 
@@ -292,8 +292,8 @@ bot.on("message", async (msg) => {
     return;
   }
 
-  if (msg.text.startsWith("/")) {
-    // Игнорируем команды, кроме /start
+  // Игнорируем команды, кроме /start
+  if (msg.text?.startsWith("/")) {
     return;
   }
 
@@ -311,7 +311,8 @@ bot.on("message", async (msg) => {
     logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
 
     // Эффект "печатания" с задержкой перед генерацией ответа
-    setTimeout(() => bot.sendChatAction(chatId, "typing"), getThinkingDelay());
+    bot.sendChatAction(chatId, "typing");
+    await new Promise((resolve) => setTimeout(resolve, getThinkingDelay()));
 
     // Генерация ответа с использованием OpenAI API
     const response = await generateResponse(chatId, userMessage);
@@ -328,21 +329,21 @@ bot.on("message", async (msg) => {
       );
       logger.info(`Ответ для пользователя ${chatId} сохранён в MongoDB.`);
     } catch (error) {
-      logger.error(`Ошибка сохранения ответа в MongoDB: ${error.message}`);
+      logger.error(`Ошибка сохранения ответа в MongoDB для chatId ${chatId}: ${error.message}`);
     }
 
-    // Добавление эффекта "печатания" перед отправкой ответа
-    setTimeout(() => {
-      bot.sendChatAction(chatId, "typing");
-      setTimeout(async () => {
-        await bot.sendMessage(chatId, response);
-        logger.info(`Ответ отправлен пользователю ${chatId}: "${response}"`);
-      }, calculateTypingTime(response)); // Время печатания зависит от длины текста
-    }, getThinkingDelay());
+    // Отправка ответа с эффектом "печатания"
+    bot.sendChatAction(chatId, "typing");
+    await new Promise((resolve) => setTimeout(resolve, calculateTypingTime(response)));
+    await bot.sendMessage(chatId, response);
+    logger.info(`Ответ отправлен пользователю ${chatId}: "${response}"`);
 
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от пользователя ${chatId}: ${error.message}`);
-    await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте позже.");
+    try {
+      await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте позже.");
+    } catch (sendError) {
+      logger.error(`Ошибка отправки сообщения об ошибке для chatId ${chatId}: ${sendError.message}`);
+    }
   }
 });
-
