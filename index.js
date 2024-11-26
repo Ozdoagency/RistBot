@@ -473,16 +473,14 @@ bot.on("message", async (msg) => {
     } catch (sendError) {
       logger.error(`Ошибка отправки сообщения об ошибке для chatId ${chatId}: ${sendError.message}`);
     }
-  }
-});
-
     // Очистка старых сообщений
     logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
 
     // Эффект "печатания" с задержкой перед генерацией ответа
     bot.sendChatAction(chatId, "typing");
     await new Promise((resolve) => setTimeout(resolve, getThinkingDelay()));
-
+ }
+});
     // Генерация ответа с использованием OpenAI API
     const response = await generateResponse(chatId, userMessage);
 
