@@ -401,22 +401,26 @@ bot.on("message", async (msg) => {
     return;
   }
 
+  const userMessage = msg.text;
+
   try {
+    await saveUserMessage(chatId, userMessage); // Перенос вызова внутрь асинхронной функции
+
     switch (user.stage - 1) {
       case 0:
-        user.data.goal = msg.text;
+        user.data.goal = userMessage;
         break;
       case 1:
-        user.data.grade = msg.text;
+        user.data.grade = userMessage;
         break;
       case 2:
-        user.data.knowledge = msg.text;
+        user.data.knowledge = userMessage;
         break;
       case 3:
-        user.data.date = msg.text;
+        user.data.date = userMessage;
         break;
       case 4:
-        user.data.phone = msg.text;
+        user.data.phone = userMessage;
         break;
       default:
         logger.error(`Неизвестный этап для chatId ${chatId}: ${user.stage}`);
@@ -430,13 +434,8 @@ bot.on("message", async (msg) => {
   }
 });
 
-
   try {
     logger.info(`Получено сообщение от пользователя ${chatId}: "${userMessage}"`);
-
-    // Сохранение сообщения пользователя
-    await saveUserMessage(chatId, userMessage);
-    logger.info(`Сообщение пользователя ${chatId} сохранено в MongoDB.`);
 
     // Очистка старых сообщений
     await cleanupOldMessages(chatId);
