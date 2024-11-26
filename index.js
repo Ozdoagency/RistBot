@@ -428,6 +428,7 @@ bot.on("message", async (msg) => {
     }
 
     await askNextQuestion(chatId, bot);
+    await cleanupOldMessages(chatId); // Перенос вызова внутрь асинхронной функции
   } catch (error) {
     logger.error(`Ошибка обработки сообщения для chatId ${chatId}: ${error.message}`);
     await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте снова позже.");
@@ -438,7 +439,6 @@ bot.on("message", async (msg) => {
     logger.info(`Получено сообщение от пользователя ${chatId}: "${userMessage}"`);
 
     // Очистка старых сообщений
-    await cleanupOldMessages(chatId);
     logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
 
     // Эффект "печатания" с задержкой перед генерацией ответа
