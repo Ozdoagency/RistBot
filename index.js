@@ -58,7 +58,7 @@ const sendSummaryToSecondBot = async (summary) => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        chat_id: GROUP_CHAT_ID, // Используем ID группы
+        chat_id: SECOND_BOT_CHAT_ID, // Используем ID группы
         text: message,
         parse_mode: "Markdown",
       }),
@@ -75,16 +75,6 @@ const sendSummaryToSecondBot = async (summary) => {
     logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
   }
 };
-    
-if (!response.ok) {
-  try {
-    const errorText = await response.text();
-    logger.error(`Ошибка отправки во второй бот: ${response.status} - ${response.statusText}`);
-    throw new Error(`Ошибка при отправке данных: ${response.status} - ${errorText}`);
-  } catch (error) {
-    logger.error(`Ошибка при обработке ответа: ${error.message}`);
-  }
-}
 
 /// Функция для обработки вопросов и этапов диалога
 const askNextQuestion = async (chatId, bot) => {
