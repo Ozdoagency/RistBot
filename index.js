@@ -71,7 +71,6 @@ const sendSummaryToSecondBot = async (summary) => {
     logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
   }
 };
-    logger.info(`Отправка данных: ${message}`);
 
     const response = await fetch(apiUrl, {
       method: "POST",
