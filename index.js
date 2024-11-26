@@ -21,7 +21,7 @@ const logger = winston.createLogger({
   ],
 });
 
-// Прямое указание ключей
+// Переменные окружения
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA"; // Используем переменные окружения
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "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";
 const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://ristbot.onrender.com";
@@ -66,10 +66,19 @@ const PORT = process.env.PORT || 3000; // Render назначает порт а�
 
 app.use(bodyParser.json());
 
-// Обработка запросов от Telegram
+// Обработка POST-запросов от Telegram
 app.post('/webhook', (req, res) => {
   bot.processUpdate(req.body); // Передаём обновления от Telegram боту
   res.sendStatus(200); // Подтверждаем получение
+});
+
+// Добавление проверки доступности сервера через GET
+app.get('/', (req, res) => {
+  res.send('Сервер работает! 🚀');
+});
+
+app.get('/webhook', (req, res) => {
+  res.send('Webhook ожидает POST-запросы от Telegram.');
 });
 
 // Подключение к MongoDB перед запуском сервера
@@ -88,7 +97,6 @@ app.post('/webhook', (req, res) => {
   }
 })();
 
-
 // Хранение контекста для каждого пользователя
 const userContext = {};
 
@@ -100,12 +108,13 @@ const handleFollowUps = async (chatId) => {
 
     // Проверка на наличие номера телефона
     const userMessages = await collection.findOne({ userId: chatId });
-    const hasPhoneNumber = userMessages.messages.some((message) =>
+    const hasPhoneNumber = userMessages?.messages.some((message) =>
       /\+?\d{10,15}/.test(message.content)
     );
 
     if (!hasPhoneNumber) {
       await sendFollowUps(bot, chatId); // Отправляем фоллоу-апы
+      logger.info(`Фоллоу-апы запущены для пользователя ${chatId}`);
     }
   } catch (error) {
     logger.error(`Ошибка при запуске фоллоу-апов для ${chatId}: ${error.message}`);
