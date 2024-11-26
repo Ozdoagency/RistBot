@@ -39,7 +39,7 @@ const sendMessageWithCheck = async (chatId, message) => {
     return;
   }
 
-  await sendMessageWithCheck(chatId, message);
+  await bot.sendMessage(chatId, message); // Исправлено: вызов напрямую bot.sendMessage
   lastMessages[chatId] = message;
   logger.info(`Message sent to chatId ${chatId}: ${message}`);
 };
@@ -64,38 +64,29 @@ const sendSummaryToSecondBot = async (summary) => {
 5️⃣ *Номер телефона:* ${summary.phone || "Не указано"}
     `;
 
-    
-    await sendMessageWithCheck(SECOND_BOT_CHAT_ID, message);
-  } catch (error) {
-    logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
-  }
-};
-
     const response = await fetch(apiUrl, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    chat_id: SECOND_BOT_CHAT_ID, // Используем ID группы
-    text: message,
-    parse_mode: "Markdown",
-  }),
-});
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: SECOND_BOT_CHAT_ID, // Используем ID группы
+        text: message,
+        parse_mode: "Markdown",
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      logger.error(`Ошибка отправки в группу: ${response.status} - ${response.statusText}`);
-      throw new Error(`Ошибка при отправке данных в группу: ${response.status} - ${errorText}`);
+      throw new Error(`Ошибка при отправке данных: ${response.status} - ${errorText}`);
     }
 
-    logger.info("Данные успешно отправлены в группу.");
+    console.log("Данные успешно отправлены в группу!");
   } catch (error) {
-    logger.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
+    console.error(`Ошибка при отправке данных во второй бот: ${error.message}`);
   }
 };
 
 /// Функция для обработки вопросов и этапов диалога
 const askNextQuestion = async (chatId, bot) => {
-  // Инициализация состояния пользователя, если его ещё нет
   const user = userState[chatId] || { stage: 0, data: {} };
   userState[chatId] = user;
 
@@ -109,30 +100,30 @@ const askNextQuestion = async (chatId, bot) => {
 
   try {
     if (user.stage < stages.length) {
-  const question = stages[user.stage];
-  await sendMessageWithCheck(chatId, question);
-  user.stage += 1; // Переход к следующему этапу
-  logger.info(`Этап обновлен для chatId ${chatId}: ${user.stage}`);
-} else {
-  const summary = {
-    goal: user.data.goal || "Не указано",
-    grade: user.data.grade || "Не указано",
-    knowledge: user.data.knowledge || "Не указано",
-    date: user.data.date || "Не указано",
-    phone: user.data.phone || "Не указано",
-  };
+      const question = stages[user.stage];
+      await sendMessageWithCheck(chatId, question); // Используйте проверку
+      user.stage += 1; // Обновление состояния
+      logger.info(`Этап обновлен для chatId ${chatId}: ${user.stage}`);
+    } else {
+      const summary = {
+        goal: user.data.goal || "Не указано",
+        grade: user.data.grade || "Не указано",
+        knowledge: user.data.knowledge || "Не указано",
+        date: user.data.date || "Не указано",
+        phone: user.data.phone || "Не указано",
+      };
 
-  logger.info(`Все этапы завершены для chatId ${chatId}. Отправляем данные.`);
-  await sendSummaryToSecondBot(summary);
+      logger.info(`Все этапы завершены для chatId ${chatId}. Отправляем данные.`);
+      await sendSummaryToSecondBot(summary);
 
-  // Благодарим пользователя и сбрасываем состояние
-  await sendMessageWithCheck(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
-  delete userState[chatId];
-}
+      await sendMessageWithCheck(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
+      delete userState[chatId]; // Удаление состояния
+    }
   } catch (error) {
-    console.error(`Ошибка в askNextQuestion для chatId ${chatId}: ${error.message}`);
+    logger.error(`Ошибка в askNextQuestion для chatId ${chatId}: ${error.message}`);
   }
 };
+
 
 const saveUserMessage = async (chatId, message) => {
   try {
@@ -143,19 +134,21 @@ const saveUserMessage = async (chatId, message) => {
       throw new Error('Отсутствует chatId или сообщение для сохранения.');
     }
 
+    const existingMessage = await collection.findOne({
+      userId: chatId,
+      "messages.content": message,
+    });
+
+    if (existingMessage) {
+      logger.info(`Сообщение уже существует для chatId ${chatId}: ${message}`);
+      return; // Если сообщение уже существует, пропускаем сохранение
+    }
+
     await collection.updateOne(
       { userId: chatId },
       { $push: { messages: { content: message, timestamp: new Date() } } },
       { upsert: true }
     );
-const existingMessage = await collection.findOne({
-  userId: chatId,
-  "messages.content": message,
-});
-if (existingMessage) {
-  logger.info(`Сообщение уже существует для chatId ${chatId}: ${message}`);
-  return;
-}
     logger.info(`Сообщение "${message}" сохранено для пользователя ${chatId}`);
   } catch (error) {
     logger.error(`Ошибка сохранения сообщения в MongoDB для chatId ${chatId}: ${error.message}`);
@@ -419,9 +412,8 @@ bot.on("message", async (msg) => {
   const user = userState[chatId] || { stage: 0, data: {} };
   userState[chatId] = user;
 
-  const userMessage = msg.text;
-
   try {
+    const userMessage = msg.text;
     await saveUserMessage(chatId, userMessage);
 
     switch (user.stage) {
