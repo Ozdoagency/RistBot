@@ -177,7 +177,7 @@ app.get('/webhook', (req, res) => {
 })();
 
    logger.info("Данные успешно отправлены во второй бот.");
-} catch (error) {
+catch (error) {
   logger.error(`Ошибка при отправке данных второму боту: ${error.message}`);
 }
 };
