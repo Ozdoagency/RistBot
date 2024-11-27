@@ -1,10 +1,10 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { Configuration, OpenAIApi } = require('openai');
 const { connectToMongoDB, getDb } = require('./mongodb');
 const { sendFollowUps } = require('./followUps');
 const express = require('express');
 const bodyParser = require('body-parser');
 const winston = require('winston');
+const fetch = require('node-fetch');
 // Подключение модулей промптов
 const basePrompt = require('./prompts/basePrompt');
 const dialogStages = require('./prompts/dialogStages');
@@ -31,15 +31,16 @@ const logger = winston.createLogger({
 });
 
 // Переменные окружения
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "YOUR_OPENAI_API_KEY";
-const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://your_domain.com";
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs";
+const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://ristbot.onrender.com";
+const HF_ACCESS_TOKEN = process.env.HF_ACCESS_TOKEN || "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";
+const HF_MODEL = "DeepPavlov/rubert-base-cased-conversational"; // Укажите нужную модель
+const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
+
 
 // Инициализация Telegram Bot и OpenAI
 const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
-const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
-const openai = new OpenAIApi(configuration);
 
 const lastMessages = {};
 const userContext = {};
@@ -58,6 +59,42 @@ function getPrompt(stage, objection) {
   }
 
   return prompt;
+}
+
+async function sendToHuggingFace(prompt) {
+  try {
+    const response = await fetch(HF_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${HF_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_length: 150, // Максимальная длина ответа
+          temperature: 0.7, // Контроль случайности
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ошибка Hugging Face API: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.generated_text || "Ошибка при генерации текста. Попробуйте позже.";
+  } catch (error) {
+    logger.error(`Ошибка взаимодействия с Hugging Face API: ${error.message}`);
+    return "Извините, произошла ошибка при обработке вашего запроса.";
+  }
+}
+
+async function generateResponse(stage, objection) {
+  const prompt = getPrompt(stage, objection); // Формируем промпт на основе этапа и возражений
+  const response = await sendToHuggingFace(prompt); // Отправляем в Hugging Face API
+  return response; // Возвращаем ответ
 }
 
 const sendMessageWithCheck = async (chatId, message) => {
@@ -273,34 +310,6 @@ function calculateTypingTime(text) {
   return Math.min(baseTime + words * 0.7, 20) * 1000; // Скорость: 0.7 сек/слово, максимум 20 сек
 }
 
-// Генерация ответа через OpenAI API
-async function generateResponse(userId, userMessage) {
-  try {
-    const user = userState[userId];
-    const currentStage = user?.stage || 0;
-
-    if (!userContext[userId]) {
-      userContext[userId] = [{ role: "system", content: getPrompt(currentStage) }];
-    }
-
-    userContext[userId].push({ role: "user", content: userMessage });
-
-    const response = await openai.createChatCompletion({
-      model: 'gpt-4',
-      messages: userContext[userId],
-      temperature: 0.7,
-      max_tokens: 500,
-    });
-
-    const assistantMessage = response.data.choices[0].message.content;
-    userContext[userId].push({ role: "assistant", content: assistantMessage });
-    return assistantMessage;
-  } catch (error) {
-    logger.error(`Ошибка OpenAI API для userId ${userId}: ${error.message}`);
-    return "Извините, произошла ошибка при обработке вашего запроса. Попробуйте снова позже.";
-  }
-}
-
 // Функция для очистки старых сообщений
 const cleanupOldMessages = async (chatId) => {
   try {
@@ -405,8 +414,12 @@ bot.on("message", async (msg) => {
     bot.sendChatAction(chatId, "typing");
     await new Promise((resolve) => setTimeout(resolve, getThinkingDelay())); // Задержка в правильном месте
 
-    // Генерация ответа с использованием OpenAI API
-    const response = await generateResponse(chatId, userMessage);
+    // Генерация ответа с использованием HugFace API
+    const stage = userState[chatId]?.stage || 0; // Текущий этап диалога
+const objection = userState[chatId]?.objection; // Текущие возражения, если есть
+
+const response = await generateResponse(stage, objection); // Генерация ответа через Hugging Face
+
 
     // Сохранение ответа в MongoDB
     try {
