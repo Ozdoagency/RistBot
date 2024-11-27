@@ -22,19 +22,19 @@ const logger = winston.createLogger({
 });
 
 // Переменные окружения
-const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "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";
-const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://ristbot.onrender.com";
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "YOUR_OPENAI_API_KEY";
+const WEBHOOK_URL = process.env.WEBHOOK_URL || "https://your_domain.com";
 
 // Инициализация Telegram Bot и OpenAI
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+const bot = new TelegramBot(TELEGRAM_TOKEN);
+bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 const configuration = new Configuration({ apiKey: OPENAI_API_KEY });
 const openai = new OpenAIApi(configuration);
 
 const lastMessages = {};
 const userContext = {};
 const userState = {};
-
 
 const sendMessageWithCheck = async (chatId, message) => {
   if (lastMessages[chatId] === message) {
@@ -49,23 +49,10 @@ const sendMessageWithCheck = async (chatId, message) => {
 
 // Создание Express-сервера
 const app = express();
-const PORT = process.env.PORT || 10001;
+const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 
-app.get('/', (req, res) => {
-  res.send('Сервер работает! 🚀');
-});
-
-// Проверка доступности порта
-app.listen(PORT, (err) => {
-  if (err) {
-    console.error(`Не удалось запустить сервер: ${err.message}`);
-    process.exit(1); // Завершаем процесс при ошибке
-  } else {
-    console.log(`Сервер запущен на порту ${PORT}`);
-  }
-});
 // Обработка POST-запросов от Telegram
 app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
   logger.info(`Получено обновление от Telegram: ${JSON.stringify(req.body)}`);
