@@ -25,29 +25,33 @@ async function sendToHuggingFace(prompt, retries = 3) {
       },
       body: JSON.stringify({
         inputs: prompt,
-        parameters: {
-          max_length: 150,
-        },
+        parameters: { max_length: 150, temperature: 0.7 },
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
+      const errorData = JSON.parse(errorText);
+
+      // Если модель загружается, повторяем запрос
+      if (errorData.error.includes('currently loading') && retries > 0) {
+        const estimatedTime = errorData.estimated_time || 30; // Берем оценку времени из ответа
+        console.log(`Модель загружается. Повторная попытка через ${Math.ceil(estimatedTime)} секунд...`);
+        await new Promise(resolve => setTimeout(resolve, Math.ceil(estimatedTime) * 1000));
+        return sendToHuggingFace(prompt, retries - 1);
+      }
+
       throw new Error(`Hugging Face API Error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
     return data.generated_text || 'Ошибка при генерации текста. Попробуйте позже.';
   } catch (error) {
-    if (retries > 0 && error.message.includes('503')) {
-      console.log('Модель загружается, повторная попытка...');
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      return sendToHuggingFace(prompt, retries - 1);
-    }
     console.error(`Ошибка взаимодействия с Hugging Face API: ${error.message}`);
     return 'Извините, произошла ошибка при обработке вашего запроса.';
   }
 }
+
 
 
 // Обработка команды /start
