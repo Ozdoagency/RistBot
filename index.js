@@ -1,43 +1,47 @@
 import TelegramBot from 'node-telegram-bot-api';
 import express from 'express';
 import bodyParser from 'body-parser';
-import { spawn } from 'child_process';
+import fetch from 'node-fetch';
 
 const TELEGRAM_TOKEN = '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs';
 const WEBHOOK_URL = 'https://ristbot.onrender.com';
-
+const HF_API_URL = 'https://api-inference.huggingface.co/models/bigscience/bloom';
+const HF_API_TOKEN = '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';
 const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 
-// Функция для генерации текста с помощью BLOOM
+// Функция для генерации текста через Hugging Face API
 async function sendToHuggingFace(prompt) {
-  return new Promise((resolve, reject) => {
-    console.log(`Запускаем Python-скрипт с вводом: ${prompt}`);
-    const pythonProcess = spawn('python3', ['bloom_generate.py', prompt]);
-
-    let result = '';
-    pythonProcess.stdout.on('data', (data) => {
-      console.log(`Python stdout: ${data}`);
-      result += data.toString();
+  try {
+    const response = await fetch(HF_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${HF_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_length: 150,
+          temperature: 0.7,
+          top_p: 0.9,
+          repetition_penalty: 1.2,
+        },
+      }),
     });
 
-    pythonProcess.stderr.on('data', (data) => {
-      console.error(`Python stderr: ${data}`);
-    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Hugging Face API Error: ${response.status} - ${errorText}`);
+    }
 
-    pythonProcess.on('close', (code) => {
-      if (code !== 0) {
-        console.error(`Python завершился с кодом ошибки ${code}`);
-        reject(`Python завершился с кодом ошибки ${code}`);
-      } else {
-        console.log(`Результат Python: ${result}`);
-        resolve(result.trim());
-      }
-    });
-  });
+    const result = await response.json();
+    return result[0]?.generated_text || 'Ошибка: Невозможно получить текст';
+  } catch (error) {
+    console.error(`Ошибка при обращении к Hugging Face API: ${error.message}`);
+    throw error;
+  }
 }
-
-
 
 // Обработка команды /start
 bot.onText(/\/start/, (msg) => {
@@ -55,7 +59,7 @@ bot.on('message', async (msg) => {
   try {
     console.log(`Получено сообщение от chatId ${chatId}: ${userMessage}`);
     const botReply = await sendToHuggingFace(userMessage);
-    console.log(`Ответ от Python: ${botReply}`);
+    console.log(`Ответ от Hugging Face API: ${botReply}`);
     await bot.sendMessage(chatId, botReply);
   } catch (error) {
     console.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
