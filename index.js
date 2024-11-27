@@ -7,7 +7,7 @@ import bodyParser from 'body-parser';
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs';
 const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://ristbot.onrender.com';
 const HF_ACCESS_TOKEN = process.env.HF_ACCESS_TOKEN || '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';
-const HF_MODEL = 'cointegrated/rubert-tiny'; // Новая модель
+const HF_MODEL = 'bigscience/bloom-560m'; // Генеративная модель
 const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
 
 // Инициализация бота
@@ -17,9 +17,6 @@ bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 // Функция для генерации ответов через Hugging Face API
 async function sendToHuggingFace(prompt, retries = 3) {
   try {
-    // Добавляем [MASK] в текст
-    const inputWithMask = `${prompt} [MASK]`;
-
     const response = await fetch(HF_API_URL, {
       method: 'POST',
       headers: {
@@ -27,7 +24,11 @@ async function sendToHuggingFace(prompt, retries = 3) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: inputWithMask, // Добавляем [MASK] в ввод
+        inputs: prompt, // Используем ввод без [MASK]
+        parameters: {
+          max_length: 150, // Максимальная длина ответа
+          temperature: 0.7, // Случайность генерации
+        },
       }),
     });
 
@@ -37,7 +38,7 @@ async function sendToHuggingFace(prompt, retries = 3) {
     }
 
     const data = await response.json();
-    return data[0]?.token_str || 'Ошибка при обработке запроса.';
+    return data.generated_text || 'Ошибка при генерации текста. Попробуйте позже.';
   } catch (error) {
     if (retries > 0 && error.message.includes('503')) {
       console.log('Модель загружается, повторная попытка...');
@@ -48,7 +49,6 @@ async function sendToHuggingFace(prompt, retries = 3) {
     return 'Извините, произошла ошибка при обработке вашего запроса.';
   }
 }
-
 
 // Обработка команды /start
 bot.onText(/\/start/, (msg) => {
@@ -63,8 +63,13 @@ bot.on('message', async (msg) => {
 
   if (userMessage.startsWith('/')) return; // Игнорируем команды
 
-  const botReply = await sendToHuggingFace(userMessage);
-  bot.sendMessage(chatId, botReply);
+  try {
+    const botReply = await sendToHuggingFace(userMessage);
+    bot.sendMessage(chatId, botReply);
+  } catch (error) {
+    bot.sendMessage(chatId, 'Извините, произошла ошибка при обработке вашего сообщения.');
+    console.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
+  }
 });
 
 // Создание Express-сервера
