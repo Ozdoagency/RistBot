@@ -4,7 +4,7 @@ const { sendFollowUps } = require('./followUps');
 const express = require('express');
 const bodyParser = require('body-parser');
 const winston = require('winston');
-import fetch from 'node-fetch';
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 // Подключение модулей промптов
 const basePrompt = require('./prompts/basePrompt');
