@@ -31,4 +31,4 @@ const dialogStages = {
 `,
 };
 
-module.exports = dialogStages;
+export default dialogStages;
