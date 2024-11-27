@@ -6,11 +6,11 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const winston = require('winston');
 // Модули промпта
-const basePrompt = require('./prompts/basePrompt');
 const dialogStages = require('./prompts/dialogStages');
 const pricing = require('./prompts/pricing');
 const objections = require('./prompts/objectionHandling');
 const generalQuestions = require('./prompts/generalQuestions');
+const objectionHandling = require('./prompts/objectionHandling');
 
 // Настройка логирования
 const logger = winston.createLogger({
@@ -44,7 +44,7 @@ const userState = {};
 
 // Формируем промпт динамически
 function getPrompt(stage, objection) {
-  let prompt = basePrompt;
+  let prompt = require('./prompts/basePrompt');
 
   if (stage !== undefined) {
     prompt += `\n\nЭтап диалога: ${dialogStages.questions[stage]}`;
