@@ -186,16 +186,30 @@ const sendSummaryToSecondBot = async (summary) => {
 
 /// Функция для обработки вопросов и этапов диалога
 const askNextQuestion = async (chatId, bot) => {
-  const user = userState[chatId] || { stage: 0, data: {} };
+  const user = userState[chatId] || { stage: 0, data: {}, askedPhone: false };
   userState[chatId] = user;
 
+  const optionalQuestions = dialogStages.questions.filter(
+    (q) => q.stage !== "Сбор информации - Подтверждение времени"
+  );
+
   try {
-    if (user.stage < dialogStages.questions.length) {
-      const question = dialogStages.questions[user.stage];
-      await sendMessageWithCheck(chatId, question);
-      user.stage += 1; // Обновление состояния
-      logger.info(`Этап обновлен для chatId ${chatId}: ${user.stage}`);
+    if (!user.askedPhone && user.stage >= optionalQuestions.length) {
+      // Обязательно спрашиваем номер телефона
+      const phoneQuestion = dialogStages.questions.find(
+        (q) => q.stage === "Сбор информации - Подтверждение времени"
+      );
+      await sendMessageWithCheck(chatId, phoneQuestion.text);
+      user.askedPhone = true; // Помечаем, что вопрос задан
+      logger.info(`Вопрос про номер телефона задан для chatId ${chatId}`);
+    } else if (user.stage < optionalQuestions.length) {
+      // Задаём остальные вопросы
+      const question = optionalQuestions[user.stage];
+      await sendMessageWithCheck(chatId, question.text);
+      user.stage += 1; // Обновляем этап
+      logger.info(`Этап обновлён для chatId ${chatId}: ${user.stage}`);
     } else {
+      // Все вопросы заданы
       const summary = {
         goal: user.data.goal || "Не указано",
         grade: user.data.grade || "Не указано",
@@ -204,10 +218,13 @@ const askNextQuestion = async (chatId, bot) => {
         phone: user.data.phone || "Не указано",
       };
 
-      logger.info(`Все этапы завершены для chatId ${chatId}. Отправляем данные.`);
+      logger.info(`Все вопросы заданы для chatId ${chatId}. Отправляем данные.`);
       await sendSummaryToSecondBot(summary);
 
-      await sendMessageWithCheck(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
+      await sendMessageWithCheck(
+        chatId,
+        "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами."
+      );
       delete userState[chatId]; // Удаление состояния
     }
   } catch (error) {
@@ -377,7 +394,7 @@ bot.on("message", async (msg) => {
 
   try {
     // Убедитесь, что состояние пользователя есть
-    const user = userState[chatId] || { stage: 0, data: {} };
+    const user = userState[chatId] || { stage: 0, data: {}, askedPhone: false };
     userState[chatId] = user;
 
     // Сохраняем сообщение
@@ -399,7 +416,10 @@ bot.on("message", async (msg) => {
         user.data.date = userMessage;
         break;
       case 4:
-        user.data.phone = userMessage;
+        if (!user.askedPhone) {
+          user.data.phone = userMessage;
+          user.askedPhone = true; // Помечаем, что номер телефона задан
+        }
         break;
       default:
         logger.error(`Неизвестный этап для chatId ${chatId}: ${user.stage}`);
@@ -410,21 +430,37 @@ bot.on("message", async (msg) => {
     await cleanupOldMessages(chatId);
     logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
 
+    // Проверка, завершены ли все вопросы
+    if (user.stage >= 4 && user.askedPhone) {
+      const summary = {
+        goal: user.data.goal || "Не указано",
+        grade: user.data.grade || "Не указано",
+        knowledge: user.data.knowledge || "Не указано",
+        date: user.data.date || "Не указано",
+        phone: user.data.phone || "Не указано",
+      };
+
+      logger.info(`Все вопросы завершены для chatId ${chatId}.`);
+      await sendSummaryToSecondBot(summary);
+
+      await bot.sendMessage(chatId, "Спасибо! Мы собрали все данные. Наш менеджер свяжется с вами.");
+      delete userState[chatId]; // Удаляем состояние пользователя
+      return;
+    }
+
     // Эффект "печатания" с задержкой перед генерацией ответа
     bot.sendChatAction(chatId, "typing");
     await new Promise((resolve) => setTimeout(resolve, getThinkingDelay())); // Задержка в правильном месте
 
-    // Генерация ответа с использованием HugFace API
-    const stage = userState[chatId]?.stage || 0; // Текущий этап диалога
-const objection = userState[chatId]?.objection; // Текущие возражения, если есть
-
-const response = await generateResponse(stage, objection); // Генерация ответа через Hugging Face
-
+    // Генерация ответа с использованием Hugging Face API
+    const stage = user.stage;
+    const response = await generateResponse(stage, user.objection);
 
     // Сохранение ответа в MongoDB
     try {
       const db = getDb();
-      const collection = db.collection('userContext');
+      const collection = db.collection("userContext");
+      userContext[chatId] = userContext[chatId] || [];
       userContext[chatId].push({ role: "assistant", content: response });
       await collection.updateOne(
         { userId: chatId },
@@ -442,6 +478,9 @@ const response = await generateResponse(stage, objection); // Генерация
     await bot.sendMessage(chatId, response);
     logger.info(`Ответ отправлен пользователю ${chatId}: "${response}"`);
 
+    // Переход к следующему этапу
+    user.stage += 1;
+
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от пользователя ${chatId}: ${error.message}`);
     try {
@@ -451,3 +490,4 @@ const response = await generateResponse(stage, objection); // Генерация
     }
   }
 });
+
