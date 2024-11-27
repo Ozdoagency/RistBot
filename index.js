@@ -47,18 +47,8 @@ const userContext = {};
 const userState = {};
 
 // Формируем промпт динамически
-function getPrompt(stage, objection) {
-  let prompt = basePrompt;
-
-  if (stage !== undefined) {
-    prompt += `\n\nЭтап диалога: ${dialogStages.questions[stage]}`;
-  }
-
-  if (objection !== undefined) {
-    prompt += `\n\nОтвет на возражение: ${objections[objection]}`;
-  }
-
-  return prompt;
+function getPrompt(context) {
+  return `${SYSTEM_PROMPT}\n\nПользователь: ${context.message}\nТекущий этап: ${context.stage}\nБот:`
 }
 
 async function sendToHuggingFace(prompt) {
@@ -99,7 +89,7 @@ async function generateResponse(stage, objection) {
 
 const sendMessageWithCheck = async (chatId, message) => {
   if (lastMessages[chatId] === message) {
-    logger.info(`Duplicate message detected for chatId ${chatId}, skipping send.`);
+    logger.info(`Duplicate message detected for chatId ${chatId, skipping send.`);
     return;
   }
 
