@@ -362,13 +362,15 @@ bot.onText(/\/start/, async (msg) => {
   `.trim();
 
   try {
-    // Отправляем приветствие, если состояние пользователя ещё не существует
+    // Отправляем приветствие и инициализируем состояние, если пользователь ещё не существует в системе
     if (!userState[chatId]) {
       await bot.sendMessage(chatId, welcomeMessage);
 
       // Инициализируем состояние пользователя
       userState[chatId] = { stage: 0, data: {}, askedPhone: false };
 
+      // Переход к следующему вопросу
+      await askNextQuestion(chatId, bot); // Здесь вызываем функцию для начала диалога
       logger.info(`Диалог начат для пользователя ${chatId}`);
     } else {
       logger.info(`Пользователь ${chatId} уже активен, повторное приветствие не отправлено.`);
@@ -377,6 +379,7 @@ bot.onText(/\/start/, async (msg) => {
     logger.error(`Ошибка при обработке команды /start для chatId ${chatId}: ${error.message}`);
   }
 });
+
 
 
 // Обработчик сообщений
@@ -393,15 +396,25 @@ bot.on("message", async (msg) => {
   }
 
   try {
-    // Убедитесь, что состояние пользователя есть
+    // Убедитесь, что состояние пользователя существует
     const user = userState[chatId] || { stage: 0, data: {}, askedPhone: false };
     userState[chatId] = user;
 
-    // Сохраняем сообщение
-    const userMessage = msg.text;
+    // Сохраняем сообщение пользователя
+    const userMessage = msg.text?.trim();
+    if (!userMessage) {
+      logger.error(`Пустое сообщение от chatId ${chatId}`);
+      await bot.sendMessage(chatId, "Пожалуйста, введите ответ.");
+      return;
+    }
+
     await saveUserMessage(chatId, userMessage);
 
-    // Определяем, что делать на каждом этапе
+    // Определяем этап и сохраняем ответ пользователя
+    const optionalQuestions = dialogStages.questions.filter(
+      (q) => q.stage !== "Сбор информации - Подтверждение времени"
+    );
+
     switch (user.stage) {
       case 0:
         user.data.goal = userMessage;
@@ -418,11 +431,12 @@ bot.on("message", async (msg) => {
       case 4:
         if (!user.askedPhone) {
           user.data.phone = userMessage;
-          user.askedPhone = true; // Помечаем, что номер телефона задан
+          user.askedPhone = true;
         }
         break;
       default:
         logger.error(`Неизвестный этап для chatId ${chatId}: ${user.stage}`);
+        await bot.sendMessage(chatId, "Произошла ошибка. Попробуйте снова.");
         return;
     }
 
@@ -430,8 +444,8 @@ bot.on("message", async (msg) => {
     await cleanupOldMessages(chatId);
     logger.info(`Старые сообщения для пользователя ${chatId} очищены.`);
 
-    // Проверка, завершены ли все вопросы
-    if (user.stage >= 4 && user.askedPhone) {
+    // Проверяем, все ли вопросы заданы
+    if (user.stage >= optionalQuestions.length && user.askedPhone) {
       const summary = {
         goal: user.data.goal || "Не указано",
         grade: user.data.grade || "Не указано",
@@ -448,39 +462,13 @@ bot.on("message", async (msg) => {
       return;
     }
 
-    // Эффект "печатания" с задержкой перед генерацией ответа
-    bot.sendChatAction(chatId, "typing");
-    await new Promise((resolve) => setTimeout(resolve, getThinkingDelay())); // Задержка в правильном месте
+    // Задаём следующий вопрос
+    await askNextQuestion(chatId, bot);
 
-    // Генерация ответа с использованием Hugging Face API
-    const stage = user.stage;
-    const response = await generateResponse(stage, user.objection);
-
-    // Сохранение ответа в MongoDB
-    try {
-      const db = getDb();
-      const collection = db.collection("userContext");
-      userContext[chatId] = userContext[chatId] || [];
-      userContext[chatId].push({ role: "assistant", content: response });
-      await collection.updateOne(
-        { userId: chatId },
-        { $set: { context: userContext[chatId] } },
-        { upsert: true }
-      );
-      logger.info(`Ответ для пользователя ${chatId} сохранён в MongoDB.`);
-    } catch (error) {
-      logger.error(`Ошибка сохранения ответа в MongoDB для chatId ${chatId}: ${error.message}`);
+    // Переход к следующему этапу, если это не вопрос с телефоном
+    if (user.stage < optionalQuestions.length) {
+      user.stage += 1;
     }
-
-    // Отправка ответа с эффектом "печатания"
-    bot.sendChatAction(chatId, "typing");
-    await new Promise((resolve) => setTimeout(resolve, calculateTypingTime(response)));
-    await bot.sendMessage(chatId, response);
-    logger.info(`Ответ отправлен пользователю ${chatId}: "${response}"`);
-
-    // Переход к следующему этапу
-    user.stage += 1;
-
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от пользователя ${chatId}: ${error.message}`);
     try {
@@ -490,4 +478,3 @@ bot.on("message", async (msg) => {
     }
   }
 });
-
