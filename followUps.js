@@ -1,9 +1,9 @@
-const { getDb } = require('./mongodb');
-const { generateResponseWithRetry } = require('./utils');
-const logger = require('./logger'); // Логирование (если используется)
+import { getDb } from './mongodb.js';
+import { generateResponseWithRetry } from './utils.js';
+import logger from './logger.js'; // Логирование (если используется)
 
-// Функция для генерации текста фоллоу-апа через OpenAI
-const generateFollowUpMessage = async (chatId, stage) => {
+// Функция для генерации текста фоллоу-апа через HugFace
+export const generateFollowUpMessage = async (chatId, stage) => {
   const prompt = `
   Ты — эксперт по продажам и ведению диалога с клиентами. Клиент перестал отвечать на сообщения. 
   Ты используешь лучшие техники продаж и вовлечения, чтобы вернуть клиента в диалог. 
@@ -31,7 +31,7 @@ const generateFollowUpMessage = async (chatId, stage) => {
 };
 
 // Функция отправки фоллоу-апов
-const sendFollowUps = async (bot, chatId) => {
+export const sendFollowUps = async (bot, chatId) => {
   const db = getDb(); // Получение базы данных
   const collection = db.collection('followUps'); // Коллекция для хранения состояния фоллоу-апов
   const timers = {};
@@ -81,5 +81,3 @@ const sendFollowUps = async (bot, chatId) => {
 
   return timers;
 };
-
-module.exports = { sendFollowUps };
