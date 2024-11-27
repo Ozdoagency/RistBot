@@ -1,5 +1,3 @@
-import logger from './logger.js';
-
 export const sendMessageWithCheck = async (bot, chatId, message, lastMessages) => {
   if (lastMessages[chatId] === message) {
     logger.info(`Duplicate message detected for chatId ${chatId}, skipping send.`);
