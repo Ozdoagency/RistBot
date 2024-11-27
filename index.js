@@ -333,13 +333,17 @@ bot.onText(/\/start/, async (msg) => {
   }
 
   try {
+    // Логируем начало обработки команды /start
+    logger.info(`Начало обработки команды /start для chatId ${chatId}`);
+
     // Отправляем приветствие и инициализируем состояние, если пользователь ещё не существует в системе
     if (!userState[chatId]) {
       await bot.sendMessage(chatId, welcomeMessage)
         .then(() => logger.info(`Приветственное сообщение отправлено в chatId ${chatId}`))
         .catch(err => logger.error(`Ошибка при отправке сообщения в chatId ${chatId}: ${err.message}`));
 
-      // Инициализируем состояние пользователя
+      // Логируем инициализацию состояния пользователя
+      logger.info(`Инициализация состояния пользователя для chatId ${chatId}`);
       userState[chatId] = { stage: 0, data: {}, askedPhone: false };
 
       // Переход к следующему вопросу
