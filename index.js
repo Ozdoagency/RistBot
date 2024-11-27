@@ -385,30 +385,36 @@ bot.onText(/\/start/, async (msg) => {
 // Обработчик сообщений
 bot.on("message", async (msg) => {
   const chatId = msg.chat?.id;
-
   if (!chatId) {
     logger.error("chatId отсутствует в сообщении:", JSON.stringify(msg, null, 2));
     return;
   }
 
-  if (msg.text?.startsWith("/")) {
-    return; // Игнорируем команды
-  }
+  if (msg.text?.startsWith("/")) return;
 
   try {
-    // Убедитесь, что состояние пользователя существует
     const user = userState[chatId] || { stage: 0, data: {}, askedPhone: false };
     userState[chatId] = user;
-
-    // Сохраняем сообщение пользователя
-    const userMessage = msg.text?.trim();
-    if (!userMessage) {
-      logger.error(`Пустое сообщение от chatId ${chatId}`);
-      await bot.sendMessage(chatId, "Пожалуйста, введите ответ.");
-      return;
+    
+    // Обработка ответа по этапам
+    switch(user.stage) {
+      case 3: // Этап времени
+        if(msg.text.toLowerCase().includes('не знаю')) {
+          await bot.sendMessage(chatId, dialogStages.questions[3].alternativeText);
+          return;
+        }
+        break;
     }
 
-    await saveUserMessage(chatId, userMessage);
+    await saveUserMessage(chatId, msg.text);
+    await cleanupOldMessages(chatId);
+    await askNextQuestion(chatId, userState, bot);
+
+  } catch (error) {
+    logger.error(`Ошибка обработки сообщения: ${error.message}`);
+    await bot.sendMessage(chatId, "Извините, произошла ошибка. Попробуйте еще раз.");
+  }
+});
 
     // Определяем этап и сохраняем ответ пользователя
     const optionalQuestions = dialogStages.questions.filter(
