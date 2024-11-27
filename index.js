@@ -73,29 +73,22 @@ const sendMessageWithCheck = async (chatId, message) => {
   }
 };
 
-// Обработка команды /start
-bot.onText(/\/start/, async (msg) => {
+// Обработка команды /startbot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat?.id;
-  const welcomeMessage = "Здравствуйте! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Как я могу помочь вам сегодня?";
 
   if (!chatId) {
-    logger.error('chatId отсутствует в сообщении:', JSON.stringify(msg, null, 2));
+    console.error("Ошибка: отсутствует chatId.");
     return;
   }
 
   try {
-    logger.info(`Начало обработки команды /start для chatId ${chatId}`);
-    if (!userState[chatId]) {
-      await sendMessageWithCheck(chatId, welcomeMessage);
-      userState[chatId] = { stage: 0, data: {}, askedPhone: false };
-      await askNextQuestion(chatId);
-    } else {
-      logger.info(`Пользователь chatId ${chatId} уже активен.`);
-    }
+    console.log(`Обработка команды /start для chatId: ${chatId}`);
+    await bot.sendMessage(chatId, "Привет! Я готов к работе.");
   } catch (error) {
-    logger.error(`Ошибка при обработке команды /start для chatId ${chatId}: ${error.message}`);
+    console.error(`Ошибка при отправке сообщения: ${error.message}`);
   }
 });
+
 
 // Обработка обычных сообщений
 bot.on('message', async (msg) => {
