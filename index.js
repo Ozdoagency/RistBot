@@ -49,7 +49,7 @@ const sendMessageWithCheck = async (chatId, message) => {
 
 // Создание Express-сервера
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 10001;
 
 app.use(bodyParser.json());
 
