@@ -218,11 +218,6 @@ app.get('/webhook', (req, res) => {
     await connectToMongoDB();
     logger.info("MongoDB подключена и готова к использованию.");
 
-    // Логика Express сервера
-    app.listen(PORT, () => {
-      logger.info(`Сервер запущен на порту ${PORT}`);
-    });
-
     // Дополнительная логика, если есть
   } catch (error) {
     logger.error(`Ошибка в основной функции: ${error.message}`);
