@@ -4,7 +4,8 @@ const { sendFollowUps } = require('./followUps');
 const express = require('express');
 const bodyParser = require('body-parser');
 const winston = require('winston');
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
+
 // Подключение модулей промптов
 const basePrompt = require('./prompts/basePrompt');
 const dialogStages = require('./prompts/dialogStages');
