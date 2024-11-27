@@ -7,7 +7,7 @@ import bodyParser from 'body-parser';
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs';
 const WEBHOOK_URL = process.env.WEBHOOK_URL || 'https://ristbot.onrender.com';
 const HF_ACCESS_TOKEN = process.env.HF_ACCESS_TOKEN || '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';
-const HF_MODEL = 'DeepPavlov/rubert-base-cased-conversational';
+const HF_MODEL = 'cointegrated/rubert-tiny'; // Новая модель
 const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
 
 // Инициализация бота
