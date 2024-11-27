@@ -6,7 +6,7 @@ import winston from 'winston';
 
 const TELEGRAM_TOKEN = '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs';
 const WEBHOOK_URL = 'https://ristbot.onrender.com';
-const HF_API_URL = 'https://api-inference.huggingface.co/models/bigscience/bloom';
+const HF_API_URL = 'https://api-inference.huggingface.co/models/facebook/opt-30b';
 const HF_API_TOKEN = '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';
 
 const bot = new TelegramBot(TELEGRAM_TOKEN);
@@ -23,13 +23,18 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({ filename: 'logs.log' })
+    new winston.transports.File({
+      filename: 'logs.log',
+      maxsize: 5 * 1024 * 1024, // Максимальный размер файла - 5 MB
+      maxFiles: 5, // Хранить до 5 архивных файлов
+    }),
   ],
 });
 
 // Функция для Hugging Face API
 async function sendToHuggingFace(prompt) {
   try {
+    logger.info(`Отправка запроса к Hugging Face API: "${prompt}"`);
     const response = await fetch(HF_API_URL, {
       method: 'POST',
       headers: {
@@ -39,10 +44,11 @@ async function sendToHuggingFace(prompt) {
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          max_length: 150,
-          temperature: 0.7,
+          max_length: 200, // Длинные ответы
+          temperature: 0.8,
           top_p: 0.9,
-          repetition_penalty: 1.2,
+          repetition_penalty: 1.1,
+          do_sample: true, // Включение режима выборки
         },
       }),
     });
@@ -53,13 +59,16 @@ async function sendToHuggingFace(prompt) {
     }
 
     const result = await response.json();
-    if (!result || !result[0]?.generated_text) {
+    const generatedText = result[0]?.generated_text;
+
+    if (!generatedText) {
       throw new Error('Неверный формат ответа от Hugging Face API');
     }
 
-    return result[0].generated_text;
+    logger.info(`Успешный ответ от Hugging Face API: "${generatedText}"`);
+    return generatedText;
   } catch (error) {
-    logger.error(`Ошибка при обращении к Hugging Face API: ${error.message}`);
+    logger.error(`Ошибка Hugging Face API: ${error.message}`);
     throw error;
   }
 }
@@ -79,9 +88,9 @@ bot.on('message', async (msg) => {
   if (userMessage.startsWith('/')) return;
 
   try {
-    logger.info(`Получено сообщение от chatId ${chatId}: ${userMessage}`);
+    logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
     const botReply = await sendToHuggingFace(userMessage);
-    logger.info(`Ответ от Hugging Face API: ${botReply}`);
+    logger.info(`Отправка ответа для chatId ${chatId}: "${botReply}"`);
     await bot.sendMessage(chatId, botReply);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);

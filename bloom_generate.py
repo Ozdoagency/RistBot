@@ -7,8 +7,8 @@ if len(sys.argv) < 2:
     sys.exit(1)
 
 # Загрузка модели и токенизатора
-tokenizer = AutoTokenizer.from_pretrained("bigscience/bloom-560m")
-model = AutoModelForCausalLM.from_pretrained("bigscience/bloom-560m")
+tokenizer = AutoTokenizer.from_pretrained("facebook/opt-30b")
+model = AutoModelForCausalLM.from_pretrained("facebook/opt-30b")
 
 # Вводный текст
 input_text = sys.argv[1]
