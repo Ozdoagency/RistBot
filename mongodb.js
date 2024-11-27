@@ -1,5 +1,5 @@
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const winston = require('winston');
+import { MongoClient, ServerApiVersion } from 'mongodb';
+import winston from 'winston';
 
 // Настройка логирования
 const logger = winston.createLogger({
@@ -31,7 +31,7 @@ const client = new MongoClient(uri, {
 // Подключение к базе данных
 let db;
 
-const connectToMongoDB = async () => {
+export const connectToMongoDB = async () => {
   try {
     if (!db) {
       await client.connect();
@@ -45,11 +45,9 @@ const connectToMongoDB = async () => {
   }
 };
 
-const getDb = () => {
+export const getDb = () => {
   if (!db) {
     throw new Error("База данных не подключена. Вызовите connectToMongoDB() сначала.");
   }
   return db;
 };
-
-module.exports = { connectToMongoDB, getDb };
