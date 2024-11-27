@@ -421,7 +421,11 @@ bot.on("message", async (msg) => {
         break;
       case 3:
         if(userMessage.toLowerCase().includes('не знаю')) {
-          await bot.sendMessage(chatId, dialogStages.questions[3].alternativeText);
+          const aiResponse = await generateResponse({
+            stage: "Время",
+            message: userMessage
+          });
+          await bot.sendMessage(chatId, aiResponse || dialogStages.questions[3].alternativeText);
           return;
         }
         user.data.date = userMessage;
