@@ -5,12 +5,15 @@ const { sendFollowUps } = require('./followUps');
 const express = require('express');
 const bodyParser = require('body-parser');
 const winston = require('winston');
-// Модули промпта
+// Подключение модулей промптов
+const basePrompt = require('./prompts/basePrompt');
 const dialogStages = require('./prompts/dialogStages');
 const pricing = require('./prompts/pricing');
-const objections = require('./prompts/objectionHandling');
-const generalQuestions = require('./prompts/generalQuestions');
 const objectionHandling = require('./prompts/objectionHandling');
+const generalQuestions = require('./prompts/generalQuestions');
+
+// Пример объединения промптов для генерации ответа
+const SYSTEM_PROMPT = `${basePrompt}\n\n${dialogStages}\n\n${pricing}\n\n${objectionHandling}\n\n${generalQuestions}`;
 
 // Настройка логирования
 const logger = winston.createLogger({
