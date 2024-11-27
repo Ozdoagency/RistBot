@@ -12,26 +12,32 @@ bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 // Функция для генерации текста с помощью BLOOM
 async function sendToHuggingFace(prompt) {
   return new Promise((resolve, reject) => {
+    console.log(`Запускаем Python-скрипт с вводом: ${prompt}`);
     const pythonProcess = spawn('python3', ['bloom_generate.py', prompt]);
 
     let result = '';
     pythonProcess.stdout.on('data', (data) => {
+      console.log(`Python stdout: ${data}`);
       result += data.toString();
     });
 
     pythonProcess.stderr.on('data', (data) => {
-      console.error(`Ошибка Python: ${data.toString()}`);
+      console.error(`Python stderr: ${data}`);
     });
 
     pythonProcess.on('close', (code) => {
       if (code !== 0) {
-        reject(`Python скрипт завершился с кодом ошибки ${code}`);
+        console.error(`Python завершился с кодом ошибки ${code}`);
+        reject(`Python завершился с кодом ошибки ${code}`);
       } else {
+        console.log(`Результат Python: ${result}`);
         resolve(result.trim());
       }
     });
   });
 }
+
+
 
 // Обработка команды /start
 bot.onText(/\/start/, (msg) => {
@@ -47,11 +53,13 @@ bot.on('message', async (msg) => {
   if (userMessage.startsWith('/')) return; // Игнорируем команды
 
   try {
+    console.log(`Получено сообщение от chatId ${chatId}: ${userMessage}`);
     const botReply = await sendToHuggingFace(userMessage);
-    bot.sendMessage(chatId, botReply);
+    console.log(`Ответ от Python: ${botReply}`);
+    await bot.sendMessage(chatId, botReply);
   } catch (error) {
-    bot.sendMessage(chatId, 'Извините, произошла ошибка при обработке вашего сообщения.');
-    console.error(`Ошибка: ${error.message}`);
+    console.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
+    await bot.sendMessage(chatId, 'Извините, произошла ошибка при обработке вашего сообщения.');
   }
 });
 
