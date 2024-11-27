@@ -98,35 +98,33 @@ bot.onText(/\/start/, async (msg) => {
 });
 
 // Обработка обычных сообщений
-bot.on('message', async (msg) => {
+bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat?.id;
+  const welcomeMessage = "Здравствуйте! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Как я могу помочь вам сегодня?";
 
-  if (!chatId || msg.text?.startsWith('/')) return;
+  if (!chatId) {
+    logger.error('chatId отсутствует в сообщении:', JSON.stringify(msg, null, 2));
+    return;
+  }
 
   try {
-    const user = userState[chatId] || { stage: 0, data: {}, askedPhone: false };
-    userState[chatId] = user;
+    logger.info(`Начало обработки команды /start для chatId ${chatId}`);
 
-    const userMessage = msg.text?.trim();
-    if (!userMessage) return;
+    if (!userState[chatId]) {
+      await sendMessageWithCheck(chatId, welcomeMessage);
+      userState[chatId] = { stage: 0, data: {}, askedPhone: false };
 
-    const currentStage = dialogStages?.questions[user.stage]?.stage || 'Этап неизвестен';
-    const response = await sendToHuggingFace(
-      `Пользователь: ${userMessage}\nЭтап: ${currentStage}\nБот:`
-    );
-
-    await sendMessageWithCheck(chatId, response);
-
-    if (user.stage < dialogStages.questions.length - 1) {
-      user.stage += 1;
-      await askNextQuestion(chatId);
+      // Обработка первого вопроса
+      try {
+        await askNextQuestion(chatId);
+      } catch (error) {
+        logger.error(`Ошибка в askNextQuestion для chatId ${chatId}: ${error.message}`);
+      }
     } else {
-      await sendMessageWithCheck(chatId, 'Спасибо! Все этапы завершены.');
-      delete userState[chatId];
+      logger.info(`Пользователь chatId ${chatId} уже активен.`);
     }
   } catch (error) {
-    logger.error(`Ошибка в обработке сообщения chatId ${chatId}: ${error.message}`);
-    await sendMessageWithCheck(chatId, 'Извините, произошла ошибка.');
+    logger.error(`Ошибка при обработке команды /start для chatId ${chatId}: ${error.message}`);
   }
 });
 
