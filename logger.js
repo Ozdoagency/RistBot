@@ -10,7 +10,7 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({ filename: '/Ozdoagency/RistBot/bot.log' }),
+    new winston.transports.File({ filename: 'bot.log' }), // Измените путь здесь
   ],
 });
 
