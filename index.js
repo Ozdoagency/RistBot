@@ -1,17 +1,17 @@
-const TelegramBot = require('node-telegram-bot-api');
-const { connectToMongoDB, getDb } = require('./mongodb');
-const { sendFollowUps } = require('./followUps');
-const express = require('express');
-const bodyParser = require('body-parser');
-const winston = require('winston');
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+import TelegramBot from 'node-telegram-bot-api';
+import { connectToMongoDB, getDb } from './mongodb.js';
+import { sendFollowUps } from './followUps.js';
+import express from 'express';
+import bodyParser from 'body-parser';
+import winston from 'winston';
+import fetch from 'node-fetch';
 
 // Подключение модулей промптов
-const basePrompt = require('./prompts/basePrompt');
-const dialogStages = require('./prompts/dialogStages');
-const pricing = require('./prompts/pricing');
-const objectionHandling = require('./prompts/objectionHandling');
-const generalQuestions = require('./prompts/generalQuestions');
+import basePrompt from './prompts/basePrompt.js';
+import dialogStages from './prompts/dialogStages.js';
+import pricing from './prompts/pricing.js';
+import objectionHandling from './prompts/objectionHandling.js';
+import generalQuestions from './prompts/generalQuestions.js';
 
 // Пример объединения промптов для генерации ответа
 const SYSTEM_PROMPT = `${basePrompt}\n\n${dialogStages}\n\n${pricing}\n\n${objectionHandling}\n\n${generalQuestions}`;
@@ -38,8 +38,7 @@ const HF_ACCESS_TOKEN = process.env.HF_ACCESS_TOKEN || "hf_xOUHvyKMtSCAuHeXVRLIf
 const HF_MODEL = "DeepPavlov/rubert-base-cased-conversational"; // Укажите нужную модель
 const HF_API_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}`;
 
-
-// Инициализация Telegram Bot и OpenAI
+// Инициализация Telegram Bot
 const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 
@@ -49,7 +48,7 @@ const userState = {};
 
 // Формируем промпт динамически
 function getPrompt(stage, objection) {
-  let prompt = require('./prompts/basePrompt');
+  let prompt = basePrompt;
 
   if (stage !== undefined) {
     prompt += `\n\nЭтап диалога: ${dialogStages.questions[stage]}`;
