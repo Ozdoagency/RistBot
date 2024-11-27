@@ -89,7 +89,7 @@ async function generateResponse(stage, objection) {
 
 const sendMessageWithCheck = async (chatId, message) => {
   if (lastMessages[chatId] === message) {
-    logger.info(`Duplicate message detected for chatId ${chatId, skipping send.`);
+    logger.info(`Duplicate message detected for chatId ${chatId}, skipping send.`);
     return;
   }
 
