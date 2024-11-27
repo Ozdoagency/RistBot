@@ -104,22 +104,6 @@ const PORT = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
 
-// Обработка POST-запросов от Telegram
-app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
-  logger.info(`Получено обновление от Telegram: ${JSON.stringify(req.body)}`);
-  bot.processUpdate(req.body); // Передаём обновления от Telegram боту
-  res.sendStatus(200); // Подтверждаем получение
-});
-
-// Добавление проверки доступности сервера через GET
-app.get('/', (req, res) => {
-  res.send('Сервер работает! 🚀');
-});
-
-app.get('/webhook', (req, res) => {
-  res.send('Webhook ожидает POST-запросы от Telegram.');
-});
-
 // Подключение к MongoDB перед запуском сервера
 (async () => {
   try {
@@ -375,87 +359,31 @@ bot.onText(/\/start/, async (msg) => {
 // Обработчик сообщений
 bot.on("message", async (msg) => {
   const chatId = msg.chat?.id;
-  
-  if (!chatId) {
-    logger.error("chatId отсутствует в сообщении:", JSON.stringify(msg, null, 2));
-    return;
-  }
 
-  if (msg.text?.startsWith("/")) {
-    return;
-  }
+  if (!chatId || msg.text?.startsWith("/")) return;
 
   try {
     const user = userState[chatId] || { stage: 0, data: {}, askedPhone: false };
     userState[chatId] = user;
-    
+
     const userMessage = msg.text?.trim();
-    if (!userMessage) {
-      logger.error(`Пустое сообщение от chatId ${chatId}`);
-      await bot.sendMessage(chatId, "Пожалуйста, введите ответ.");
-      return;
-    }
+    if (!userMessage) return;
 
-    // Сохраняем сообщение пользователя и обновляем данные
+    const response = await sendToHuggingFace(getPrompt({
+      message: userMessage,
+      stage: dialogStages.questions[user.stage].stage
+    }));
+
     await saveUserMessage(chatId, userMessage);
-    
-    switch(user.stage) {
-      case 0:
-        user.data.goal = userMessage;
-        break;
-      case 1:
-        user.data.grade = userMessage;
-        break;
-      case 2:
-        user.data.knowledge = userMessage;
-        break;
-      case 3:
-        if(userMessage.toLowerCase().includes('не знаю')) {
-          const aiResponse = await generateResponse({
-            stage: "Время",
-            message: userMessage
-          });
-          await bot.sendMessage(chatId, aiResponse || dialogStages.questions[3].alternativeText);
-          return;
-        }
-        user.data.date = userMessage;
-        break;
-      case 4:
-        if (!user.askedPhone) {
-          if(dialogStages.questions[4].validation(userMessage)) {
-            user.data.phone = userMessage;
-            user.askedPhone = true;
-          } else {
-            await bot.sendMessage(chatId, dialogStages.questions[4].errorText);
-            return;
-          }
-        }
-        break;
+    await bot.sendMessage(chatId, response);
+
+    if (user.stage < dialogStages.questions.length - 1) {
+      user.stage += 1;
+      await askNextQuestion(chatId, userState, bot);
     }
-
-    // Очистка старых сообщений
-    await cleanupOldMessages(chatId);
-
-    // Проверяем завершение диалога
-    if (user.stage >= dialogStages.questions.length - 1 && user.askedPhone) {
-      const summary = {
-        goal: user.data.goal,
-        grade: user.data.grade,
-        knowledge: user.data.knowledge,
-        date: user.data.date,
-        phone: user.data.phone
-      };
-      
-      await sendSummaryToSecondBot(summary);
-      await bot.sendMessage(chatId, dialogStages.questions[5].text);
-      delete userState[chatId];
-      return;
-    }
-
-    await askNextQuestion(chatId, userState, bot);
 
   } catch (error) {
-    logger.error(`Ошибка обработки сообщения: ${error.message}`);
-    await bot.sendMessage(chatId, "Извините, произошла ошибка. Попробуйте еще раз.");
+    logger.error(`Ошибка: ${error.message}`);
+    await bot.sendMessage(chatId, "Извините, произошла ошибка.");
   }
 });
