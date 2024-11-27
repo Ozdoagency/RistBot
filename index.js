@@ -2,15 +2,32 @@ import TelegramBot from 'node-telegram-bot-api';
 import express from 'express';
 import bodyParser from 'body-parser';
 import fetch from 'node-fetch';
+import winston from 'winston';
 
 const TELEGRAM_TOKEN = '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs';
 const WEBHOOK_URL = 'https://ristbot.onrender.com';
 const HF_API_URL = 'https://api-inference.huggingface.co/models/bigscience/bloom';
 const HF_API_TOKEN = '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';
+
 const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 
-// Функция для генерации текста через Hugging Face API
+// Настройка Winston
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.printf(({ timestamp, level, message }) => {
+      return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+    })
+  ),
+  transports: [
+    new winston.transports.Console(),
+    new winston.transports.File({ filename: 'logs.log' })
+  ],
+});
+
+// Функция для Hugging Face API
 async function sendToHuggingFace(prompt) {
   try {
     const response = await fetch(HF_API_URL, {
@@ -36,9 +53,13 @@ async function sendToHuggingFace(prompt) {
     }
 
     const result = await response.json();
-    return result[0]?.generated_text || 'Ошибка: Невозможно получить текст';
+    if (!result || !result[0]?.generated_text) {
+      throw new Error('Неверный формат ответа от Hugging Face API');
+    }
+
+    return result[0].generated_text;
   } catch (error) {
-    console.error(`Ошибка при обращении к Hugging Face API: ${error.message}`);
+    logger.error(`Ошибка при обращении к Hugging Face API: ${error.message}`);
     throw error;
   }
 }
@@ -46,6 +67,7 @@ async function sendToHuggingFace(prompt) {
 // Обработка команды /start
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
+  logger.info(`Обработка команды /start для chatId: ${chatId}`);
   bot.sendMessage(chatId, 'Добро пожаловать! Напишите мне сообщение, и я отвечу.');
 });
 
@@ -54,15 +76,15 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
 
-  if (userMessage.startsWith('/')) return; // Игнорируем команды
+  if (userMessage.startsWith('/')) return;
 
   try {
-    console.log(`Получено сообщение от chatId ${chatId}: ${userMessage}`);
+    logger.info(`Получено сообщение от chatId ${chatId}: ${userMessage}`);
     const botReply = await sendToHuggingFace(userMessage);
-    console.log(`Ответ от Hugging Face API: ${botReply}`);
+    logger.info(`Ответ от Hugging Face API: ${botReply}`);
     await bot.sendMessage(chatId, botReply);
   } catch (error) {
-    console.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
+    logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
     await bot.sendMessage(chatId, 'Извините, произошла ошибка при обработке вашего сообщения.');
   }
 });
@@ -73,16 +95,23 @@ app.use(bodyParser.json());
 
 // Обработка Webhook
 app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
-  bot.processUpdate(req.body);
-  res.sendStatus(200);
+  logger.info('Получен запрос от Telegram');
+  try {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  } catch (error) {
+    logger.error(`Ошибка обработки Webhook: ${error.message}`);
+    res.sendStatus(500);
+  }
 });
 
 // Проверка доступности сервера
 app.get('/', (req, res) => {
+  logger.info('Запрос на /');
   res.send('Сервер работает! 🚀');
 });
 
 // Запуск сервера
 app.listen(process.env.PORT || 3000, () => {
-  console.log(`Сервер запущен на порту ${process.env.PORT || 3000}`);
+  logger.info(`Сервер запущен на порту ${process.env.PORT || 3000}`);
 });
