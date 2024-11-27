@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Телеграм-бот с MongoDB и OpenAI",
   "main": "index.js",
-  "type": "module",  // Добавлено для использования ES-модулей
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"
