@@ -17,6 +17,9 @@ bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 // Функция для генерации ответов через Hugging Face API
 async function sendToHuggingFace(prompt, retries = 3) {
   try {
+    // Добавляем [MASK] в текст
+    const inputWithMask = `${prompt} [MASK]`;
+
     const response = await fetch(HF_API_URL, {
       method: 'POST',
       headers: {
@@ -24,7 +27,7 @@ async function sendToHuggingFace(prompt, retries = 3) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: prompt, // Убрали parameters
+        inputs: inputWithMask, // Добавляем [MASK] в ввод
       }),
     });
 
@@ -34,7 +37,7 @@ async function sendToHuggingFace(prompt, retries = 3) {
     }
 
     const data = await response.json();
-    return data.generated_text || 'Ошибка при генерации текста. Попробуйте позже.';
+    return data[0]?.token_str || 'Ошибка при обработке запроса.';
   } catch (error) {
     if (retries > 0 && error.message.includes('503')) {
       console.log('Модель загружается, повторная попытка...');
@@ -45,6 +48,7 @@ async function sendToHuggingFace(prompt, retries = 3) {
     return 'Извините, произошла ошибка при обработке вашего запроса.';
   }
 }
+
 
 // Обработка команды /start
 bot.onText(/\/start/, (msg) => {
