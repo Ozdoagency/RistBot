@@ -115,11 +115,7 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({
-      filename: 'logs.log',
-      maxsize: 5 * 1024 * 1024, // Максимальный размер файла - 5 MB
-      maxFiles: 5, // Хранить до 5 архивных файлов
-    }),
+    new winston.transports.File({ filename: 'logs.log', maxsize: 5 * 1024 * 1024, maxFiles: 5 }),
   ],
 });
 
@@ -131,11 +127,8 @@ bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 async function sendToGradio(message) {
   try {
     logger.info(`Отправка запроса к Gradio API: "${message}" с инструкцией: "${SYSTEM_PROMPT}"`);
-
-    // Подключение к Gradio Space
     const client = await Client.connect(GRADIO_SPACE);
 
-    // Выполнение запроса
     const result = await client.predict('/chat', {
       message: message,
       system_message: SYSTEM_PROMPT,
@@ -145,7 +138,7 @@ async function sendToGradio(message) {
     });
 
     logger.info(`Успешный ответ от Gradio API: "${result.data}"`);
-    return result.data; // Возвращает сгенерированный текст
+    return result.data;
   } catch (error) {
     logger.error(`Ошибка Gradio API: ${error.message}`);
     throw error;
@@ -153,7 +146,7 @@ async function sendToGradio(message) {
 }
 
 // Форматирование ответа от Gradio API
-async function formatGradioResponse(response) {
+function formatGradioResponse(response) {
   const textResponse = typeof response === 'string' ? response : String(response);
   const cleanedResponse = textResponse.replace(/\(.*?\)/g, '').trim();
 
@@ -190,12 +183,12 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
 
-  if (userMessage.startsWith('/')) return; // Игнорируем команды
+  if (userMessage.startsWith('/')) return;
 
   try {
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
     const botReply = await sendToGradio(userMessage);
-    const formattedReply = await formatGradioResponse(botReply);
+    const formattedReply = formatGradioResponse(botReply);
     await sendMessage(chatId, formattedReply);
     logger.info(`Отправка ответа для chatId ${chatId}: "${formattedReply}"`);
   } catch (error) {
