@@ -1,12 +1,13 @@
 import TelegramBot from 'node-telegram-bot-api';
 import express from 'express';
 import bodyParser from 'body-parser';
-import fetch from 'node-fetch';
 import winston from 'winston';
+import { Client } from '@gradio/client';
 
+// Конфигурация
 const TELEGRAM_TOKEN = '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs';
 const WEBHOOK_URL = 'https://ristbot.onrender.com';
-const GRADIO_API_URL = 'https://ozdo-ristbot.hf.space/api/predict';
+const GRADIO_SPACE = 'Ozdo/ristbot';
 
 const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
@@ -22,40 +23,29 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({
-      filename: 'logs.log',
-      maxsize: 5 * 1024 * 1024,
-      maxFiles: 5,
-    }),
+    new winston.transports.File({ filename: 'logs.log', maxsize: 5 * 1024 * 1024, maxFiles: 5 }),
   ],
 });
 
-// Функция для Gradio API
-async function sendToGradio(prompt) {
+// Подключение к Gradio API
+async function sendToGradio(message) {
   try {
-    logger.info(`Отправка запроса к Gradio API: "${prompt}"`);
-    const response = await fetch(GRADIO_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ data: [prompt] }),
+    logger.info(`Отправка запроса к Gradio API: "${message}"`);
+
+    // Подключение к Space
+    const client = await Client.connect(GRADIO_SPACE);
+
+    // Выполнение запроса
+    const result = await client.predict('/chat', {
+      message: message,
+      system_message: 'You are a friendly Chatbot.',
+      max_tokens: 150,
+      temperature: 0.7,
+      top_p: 0.9,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Gradio API Error: ${response.status} - ${errorText}`);
-    }
-
-    const result = await response.json();
-    const generatedText = result.data[0];
-
-    if (!generatedText) {
-      throw new Error('Неверный формат ответа от Gradio API');
-    }
-
-    logger.info(`Успешный ответ от Gradio API: "${generatedText}"`);
-    return generatedText;
+    logger.info(`Успешный ответ от Gradio API: "${result.data}"`);
+    return result.data; // Возвращает сгенерированный текст
   } catch (error) {
     logger.error(`Ошибка Gradio API: ${error.message}`);
     throw error;
@@ -74,7 +64,7 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
 
-  if (userMessage.startsWith('/')) return;
+  if (userMessage.startsWith('/')) return; // Игнорируем команды
 
   try {
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
