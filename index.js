@@ -32,12 +32,12 @@ bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 // Функция для отправки запроса в Gradio API
 async function sendToGradio(message) {
   try {
-    logger.info(`Отправка запроса к Gradio API: "${message}" с инструкцией: "${SYSTEM_PROMPT}"`);
+    logger.info(`Отправка запроса к Gradio API: "${message}"`);
+
     const client = await Client.connect(GRADIO_SPACE);
 
     const result = await client.predict('/chat', {
       message: message,
-      system_message: SYSTEM_PROMPT,
       max_tokens: 150,
       temperature: 0.7,
       top_p: 0.9,
