@@ -8,6 +8,7 @@ import { Client } from '@gradio/client';
 const TELEGRAM_TOKEN = '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs';
 const WEBHOOK_URL = 'https://ristbot.onrender.com';
 const GRADIO_SPACE = 'Ozdo/ristbot';
+const MAX_TELEGRAM_MESSAGE_LENGTH = 4096;
 
 const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
@@ -50,6 +51,31 @@ async function sendToGradio(message) {
     logger.error(`Ошибка Gradio API: ${error.message}`);
     throw error;
   }
+}
+
+// Форматирование ответа от Gradio API
+async function formatGradioResponse(response) {
+  const cleanedResponse = response.replace(/\(.*?\)/g, '').trim();
+
+  if (!cleanedResponse) {
+    return 'Извините, я не смог понять ваш запрос.';
+  }
+
+  return cleanedResponse;
+}
+
+// Отправка сообщения в Telegram с проверкой длины
+async function sendMessage(chatId, text) {
+  if (!text || text.trim() === '') {
+    throw new Error('Message text is empty');
+  }
+
+  const trimmedText =
+    text.length > MAX_TELEGRAM_MESSAGE_LENGTH
+      ? text.substring(0, MAX_TELEGRAM_MESSAGE_LENGTH - 3) + '...'
+      : text;
+
+  return bot.sendMessage(chatId, trimmedText);
 }
 
 // Обработка команды /start
