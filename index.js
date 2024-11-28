@@ -24,7 +24,11 @@ const logger = winston.createLogger({
   ),
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({ filename: 'logs.log', maxsize: 5 * 1024 * 1024, maxFiles: 5 }),
+    new winston.transports.File({
+      filename: 'logs.log',
+      maxsize: 5 * 1024 * 1024, // Максимальный размер файла - 5 MB
+      maxFiles: 5, // Хранить до 5 архивных файлов
+    }),
   ],
 });
 
@@ -55,8 +59,13 @@ async function sendToGradio(message) {
 
 // Форматирование ответа от Gradio API
 async function formatGradioResponse(response) {
-  const cleanedResponse = response.replace(/\(.*?\)/g, '').trim();
+  // Убедимся, что response — это строка
+  const textResponse = typeof response === 'string' ? response : String(response);
 
+  // Удаляем текст в скобках
+  const cleanedResponse = textResponse.replace(/\(.*?\)/g, '').trim();
+
+  // Если текст пустой после обработки
   if (!cleanedResponse) {
     return 'Извините, я не смог понять ваш запрос.';
   }
@@ -96,10 +105,11 @@ bot.on('message', async (msg) => {
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
     let botReply = await sendToGradio(userMessage);
 
-    // Форматируем и обрезаем текст
+    // Форматируем ответ от Gradio API
     botReply = await formatGradioResponse(botReply);
-    await sendMessage(chatId, botReply);
 
+    // Отправляем сообщение
+    await sendMessage(chatId, botReply);
     logger.info(`Отправка ответа для chatId ${chatId}: "${botReply}"`);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
