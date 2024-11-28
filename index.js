@@ -29,21 +29,29 @@ const logger = winston.createLogger({
 const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 
-// Функция для отправки запроса в Gradio API
-async function sendToGradio(message) {
-  try {
-    logger.info(`Отправка запроса к Gradio API: "${message}"`);
+// История сообщений
+const userHistories = {}; // Словарь для хранения истории по chatId
 
+// Функция для отправки запроса в Gradio API
+async function sendToGradio(message, history) {
+  try {
+    logger.info(`Отправка запроса к Gradio API: "${message}" с историей: ${JSON.stringify(history)}`);
     const client = await Client.connect(GRADIO_SPACE);
 
+    // Добавляем текущее сообщение пользователя в историю
+    history.push({ role: 'user', content: message });
+
     const result = await client.predict('/chat', {
-      message: message,
-      max_tokens: 150,
+      message,
+      max_tokens: 200,
       temperature: 0.7,
       top_p: 0.9,
+      history, // Передаем историю
     });
 
-    const response = result.data;
+    const response = result.data || '';
+    history.push({ role: 'assistant', content: response }); // Сохраняем ответ ассистента в историю
+
     logger.info(`Успешный ответ от Gradio API: "${response}"`);
     return response;
   } catch (error) {
@@ -55,12 +63,7 @@ async function sendToGradio(message) {
 // Форматирование ответа от Gradio API
 function formatGradioResponse(response) {
   const textResponse = typeof response === 'string' ? response : String(response);
-
-  // Удаление маркеров вроде <|user|> и <|assistant|>
-  const cleanedResponse = textResponse
-    .replace(/<\|user\|>/g, '')
-    .replace(/<\|assistant\|>/g, '')
-    .trim();
+  const cleanedResponse = textResponse.replace(/<\|.*?\|>/g, '').trim();
 
   if (!cleanedResponse) {
     return 'Извините, я не смог понять ваш запрос.';
@@ -86,6 +89,7 @@ async function sendMessage(chatId, text) {
 // Обработка команды /start
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
+  userHistories[chatId] = []; // Инициализируем историю для нового пользователя
   logger.info(`Обработка команды /start для chatId: ${chatId}`);
   bot.sendMessage(chatId, 'Добро пожаловать! Напишите мне сообщение, и я отвечу.');
 });
@@ -98,8 +102,12 @@ bot.on('message', async (msg) => {
   if (userMessage.startsWith('/')) return;
 
   try {
+    if (!userHistories[chatId]) {
+      userHistories[chatId] = []; // Инициализируем историю, если её ещё нет
+    }
+
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
-    const botReply = await sendToGradio(userMessage);
+    const botReply = await sendToGradio(userMessage, userHistories[chatId]);
     const formattedReply = formatGradioResponse(botReply);
     await sendMessage(chatId, formattedReply);
     logger.info(`Отправка ответа для chatId ${chatId}: "${formattedReply}"`);
