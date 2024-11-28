@@ -55,7 +55,12 @@ async function sendToGradio(message) {
 // Форматирование ответа от Gradio API
 function formatGradioResponse(response) {
   const textResponse = typeof response === 'string' ? response : String(response);
-  const cleanedResponse = textResponse.replace(/\(.*?\)/g, '').trim();
+
+  // Удаление маркеров вроде <|user|> и <|assistant|>
+  const cleanedResponse = textResponse
+    .replace(/<\|user\|>/g, '')
+    .replace(/<\|assistant\|>/g, '')
+    .trim();
 
   if (!cleanedResponse) {
     return 'Извините, я не смог понять ваш запрос.';
