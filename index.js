@@ -132,4 +132,101 @@ async function sendToGradio(message) {
   try {
     logger.info(`Отправка запроса к Gradio API: "${message}" с инструкцией: "${SYSTEM_PROMPT}"`);
 
-    // По
+    // Подключение к Gradio Space
+    const client = await Client.connect(GRADIO_SPACE);
+
+    // Выполнение запроса
+    const result = await client.predict('/chat', {
+      message: message,
+      system_message: SYSTEM_PROMPT,
+      max_tokens: 150,
+      temperature: 0.7,
+      top_p: 0.9,
+    });
+
+    logger.info(`Успешный ответ от Gradio API: "${result.data}"`);
+    return result.data; // Возвращает сгенерированный текст
+  } catch (error) {
+    logger.error(`Ошибка Gradio API: ${error.message}`);
+    throw error;
+  }
+}
+
+// Форматирование ответа от Gradio API
+async function formatGradioResponse(response) {
+  const textResponse = typeof response === 'string' ? response : String(response);
+  const cleanedResponse = textResponse.replace(/\(.*?\)/g, '').trim();
+
+  if (!cleanedResponse) {
+    return 'Извините, я не смог понять ваш запрос.';
+  }
+
+  return cleanedResponse;
+}
+
+// Отправка сообщения в Telegram с проверкой длины
+async function sendMessage(chatId, text) {
+  if (!text || text.trim() === '') {
+    throw new Error('Message text is empty');
+  }
+
+  const trimmedText =
+    text.length > MAX_TELEGRAM_MESSAGE_LENGTH
+      ? text.substring(0, MAX_TELEGRAM_MESSAGE_LENGTH - 3) + '...'
+      : text;
+
+  return bot.sendMessage(chatId, trimmedText);
+}
+
+// Обработка команды /start
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  logger.info(`Обработка команды /start для chatId: ${chatId}`);
+  bot.sendMessage(chatId, 'Добро пожаловать! Напишите мне сообщение, и я отвечу.');
+});
+
+// Обработка текстовых сообщений
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const userMessage = msg.text;
+
+  if (userMessage.startsWith('/')) return; // Игнорируем команды
+
+  try {
+    logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
+    const botReply = await sendToGradio(userMessage);
+    const formattedReply = await formatGradioResponse(botReply);
+    await sendMessage(chatId, formattedReply);
+    logger.info(`Отправка ответа для chatId ${chatId}: "${formattedReply}"`);
+  } catch (error) {
+    logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
+    await sendMessage(chatId, 'Извините, произошла ошибка при обработке вашего сообщения.');
+  }
+});
+
+// Создание Express-сервера
+const app = express();
+app.use(bodyParser.json());
+
+// Обработка Webhook
+app.post(`/bot${TELEGRAM_TOKEN}`, (req, res) => {
+  logger.info('Получен запрос от Telegram');
+  try {
+    bot.processUpdate(req.body);
+    res.sendStatus(200);
+  } catch (error) {
+    logger.error(`Ошибка обработки Webhook: ${error.message}`);
+    res.sendStatus(500);
+  }
+});
+
+// Проверка доступности сервера
+app.get('/', (req, res) => {
+  logger.info('Запрос на /');
+  res.send('Сервер работает! 🚀');
+});
+
+// Запуск сервера
+app.listen(process.env.PORT || 3000, () => {
+  logger.info(`Сервер запущен на порту ${process.env.PORT || 3000}`);
+});
