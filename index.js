@@ -6,8 +6,7 @@ import winston from 'winston';
 
 const TELEGRAM_TOKEN = '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs';
 const WEBHOOK_URL = 'https://ristbot.onrender.com';
-const HF_API_URL = 'https://api-inference.huggingface.co/models/facebook/opt-30b';
-const HF_API_TOKEN = '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';
+const GRADIO_API_URL = 'https://ozdo-ristbot.hf.space/api/predict';
 
 const bot = new TelegramBot(TELEGRAM_TOKEN);
 bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
@@ -25,50 +24,40 @@ const logger = winston.createLogger({
     new winston.transports.Console(),
     new winston.transports.File({
       filename: 'logs.log',
-      maxsize: 5 * 1024 * 1024, // Максимальный размер файла - 5 MB
-      maxFiles: 5, // Хранить до 5 архивных файлов
+      maxsize: 5 * 1024 * 1024,
+      maxFiles: 5,
     }),
   ],
 });
 
-// Функция для Hugging Face API
-async function sendToHuggingFace(prompt) {
+// Функция для Gradio API
+async function sendToGradio(prompt) {
   try {
-    logger.info(`Отправка запроса к Hugging Face API: "${prompt}"`);
-    const response = await fetch(HF_API_URL, {
+    logger.info(`Отправка запроса к Gradio API: "${prompt}"`);
+    const response = await fetch(GRADIO_API_URL, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${HF_API_TOKEN}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_length: 200, // Длинные ответы
-          temperature: 0.8,
-          top_p: 0.9,
-          repetition_penalty: 1.1,
-          do_sample: true, // Включение режима выборки
-        },
-      }),
+      body: JSON.stringify({ data: [prompt] }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Hugging Face API Error: ${response.status} - ${errorText}`);
+      throw new Error(`Gradio API Error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    const generatedText = result[0]?.generated_text;
+    const generatedText = result.data[0];
 
     if (!generatedText) {
-      throw new Error('Неверный формат ответа от Hugging Face API');
+      throw new Error('Неверный формат ответа от Gradio API');
     }
 
-    logger.info(`Успешный ответ от Hugging Face API: "${generatedText}"`);
+    logger.info(`Успешный ответ от Gradio API: "${generatedText}"`);
     return generatedText;
   } catch (error) {
-    logger.error(`Ошибка Hugging Face API: ${error.message}`);
+    logger.error(`Ошибка Gradio API: ${error.message}`);
     throw error;
   }
 }
@@ -89,7 +78,7 @@ bot.on('message', async (msg) => {
 
   try {
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
-    const botReply = await sendToHuggingFace(userMessage);
+    const botReply = await sendToGradio(userMessage);
     logger.info(`Отправка ответа для chatId ${chatId}: "${botReply}"`);
     await bot.sendMessage(chatId, botReply);
   } catch (error) {
