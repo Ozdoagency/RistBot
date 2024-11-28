@@ -91,13 +91,23 @@ bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   userHistories[chatId] = []; // Инициализируем историю для нового пользователя
   logger.info(`Обработка команды /start для chatId: ${chatId}`);
-  bot.sendMessage(chatId, 'Добро пожаловать! Напишите мне сообщение, и я отвечу.');
+  bot.sendMessage(
+    chatId,
+    'Здравствуйте! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас! ' +
+      'Чтобы записать вашего ребёнка на пробные уроки, мне нужно задать пару вопросов. ' +
+      'Какую цель вы хотите достичь с помощью наших занятий? 🎯'
+  );
 });
 
 // Обработка текстовых сообщений
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
+
+  // Получение имени пользователя
+  const firstName = msg.from.first_name || 'пользователь';
+  const lastName = msg.from.last_name || '';
+  const fullName = lastName ? `${firstName} ${lastName}` : firstName;
 
   if (userMessage.startsWith('/')) return;
 
@@ -109,11 +119,15 @@ bot.on('message', async (msg) => {
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
     const botReply = await sendToGradio(userMessage, userHistories[chatId]);
     const formattedReply = formatGradioResponse(botReply);
-    await sendMessage(chatId, formattedReply);
-    logger.info(`Отправка ответа для chatId ${chatId}: "${formattedReply}"`);
+
+    // Персонализированный ответ
+    const personalizedReply = `Здравствуйте, ${fullName}! ${formattedReply}`;
+    await sendMessage(chatId, personalizedReply);
+
+    logger.info(`Отправка ответа для chatId ${chatId}: "${personalizedReply}"`);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
-    await sendMessage(chatId, 'Извините, произошла ошибка при обработке вашего сообщения.');
+    await sendMessage(chatId, `Извините, ${fullName}, произошла ошибка при обработке вашего сообщения.`);
   }
 });
 
