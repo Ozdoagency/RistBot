@@ -6,8 +6,8 @@ import { Client } from '@gradio/client';
 
 // Конфигурация
 const TELEGRAM_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'; // Замените на ваш токен
-const WEBHOOK_URL = 'https://ristbot.onrender.com';
-const GRADIO_SPACE = 'Ozdo/ristbot';
+const WEBHOOK_URL = 'https://ristbot.onrender.com';  // URL для webhook
+const GRADIO_SPACE = 'Ozdo/ristbot'; // Пример пространства Gradio
 const MAX_TELEGRAM_MESSAGE_LENGTH = 4096;
 
 // Настройка Winston для логирования
@@ -31,25 +31,20 @@ bot.setWebHook(`${WEBHOOK_URL}/bot${TELEGRAM_TOKEN}`);
 const userHistories = {};
 
 // Функция для отправки запроса в Gradio API
-async function sendToGradio(message, history) {
+async function sendToGradio(message) {
   try {
-    logger.info(`Отправка запроса к Gradio API: "${message}" с историей: ${JSON.stringify(history)}`);
+    logger.info(`Отправка запроса к Gradio API: "${message}"`);
     const client = await Client.connect(GRADIO_SPACE);
 
-    // Добавляем сообщение пользователя в историю
-    history.push({ role: 'user', content: message });
-
+    // Простой запрос без использования истории
     const result = await client.predict('/chat', {
       message,
       max_tokens: 200,
       temperature: 0.7,
       top_p: 0.9,
-      history,
     });
 
     const response = result.data || '';
-    history.push({ role: 'assistant', content: response }); // Сохраняем ответ ассистента в историю
-
     logger.info(`Успешный ответ от Gradio API: "${response}"`);
     return response;
   } catch (error) {
@@ -116,7 +111,7 @@ bot.on('message', async (msg) => {
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
 
     // Запрос к Gradio API
-    const botReply = await sendToGradio(userMessage, userHistories[chatId]);
+    const botReply = await sendToGradio(userMessage);
     const formattedReply = formatGradioResponse(botReply);
 
     // Персонализированный ответ
