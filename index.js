@@ -68,12 +68,16 @@ bot.on('message', async (msg) => {
 
   try {
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
-    const botReply = await sendToGradio(userMessage);
+    let botReply = await sendToGradio(userMessage);
+
+    // Форматируем и обрезаем текст
+    botReply = await formatGradioResponse(botReply);
+    await sendMessage(chatId, botReply);
+
     logger.info(`Отправка ответа для chatId ${chatId}: "${botReply}"`);
-    await bot.sendMessage(chatId, botReply);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
-    await bot.sendMessage(chatId, 'Извините, произошла ошибка при обработке вашего сообщения.');
+    await sendMessage(chatId, 'Извините, произошла ошибка при обработке вашего сообщения.');
   }
 });
 
