@@ -200,6 +200,13 @@ async function sendCollectedDataToGroup(chatId) {
   }
 }
 
+// **Функция генерации промпта для Gemini API**
+function generatePrompt(userMessage, chatId) {
+  const userHistory = userHistories[chatId] || [];
+  const context = userHistory.map(entry => `Пользователь: ${entry.response}\nИИ: ${entry.reply}`).join('\n');
+  return `${context}\nПользователь: ${userMessage}\nИИ:`;
+}
+
 // **Обработка текстовых сообщений**
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
@@ -210,12 +217,44 @@ bot.on('message', async (msg) => {
   if (userMessage.startsWith('/')) return;
 
   try {
-    // Отправка сообщения пользователя в Gemini API
-    const prompt = `Пользователь: ${userMessage}\nИИ:`;
+    // Проверка текущего этапа диалога
+    if (userStages[chatId] === undefined) {
+      userStages[chatId] = 0; // Устанавливаем начальный этап
+    }
+
+    const currentStage = dialogStages.questions[userStages[chatId]];
+
+    // Генерация промпта для Gemini API
+    const prompt = generatePrompt(userMessage, chatId);
     const aiResponse = await sendToGemini(prompt, chatId);
+
+    // Сохранение истории диалога
+    userHistories[chatId] = userHistories[chatId] || [];
+    userHistories[chatId].push({ response: userMessage, reply: aiResponse });
 
     // Отправка ответа от Gemini API пользователю
     await sendTypingMessage(chatId, aiResponse);
+
+    // Переход к следующему этапу
+    userStages[chatId]++;
+    if (userStages[chatId] < dialogStages.questions.length) {
+      const nextStage = dialogStages.questions[userStages[chatId]];
+      const nextQuestion = nextStage.stage === "Темы" ? nextStage.text(userHistories[chatId][1].response) : nextStage.text;
+      const nextQuestionWithEmotion = getNextQuestionWithEmotion({ text: nextQuestion }, currentStage.followUp, userMessage);
+      logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
+      await sendTypingMessage(chatId, nextQuestionWithEmotion);
+    } else {
+      // Завершение диалога
+      delete userStages[chatId];
+      logger.info(`Завершение диалога для chatId: ${chatId}`);
+      await sendTypingMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
+
+      // Сообщение о подтверждении времени
+      await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пару минут, ожидайте пожалуйста 😊");
+
+      // Отправка собранных данных в группу
+      await sendCollectedDataToGroup(chatId);
+    }
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
     await sendTypingMessage(chatId, `Произошла ошибка: ${error.message}`);
