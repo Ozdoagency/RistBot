@@ -28,11 +28,11 @@ const config = {
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// Инициализация Telegram Bot
+// Иниц��ализация Telegram Bot
 const bot = new TelegramBot(config.TELEGRAM_TOKEN);
 bot.setWebHook(`${config.WEBHOOK_URL}/bot${config.TELEGRAM_TOKEN}`);
 
-// Ло��ирование с помощью Winston
+// Логирование с помощью Winston
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -170,7 +170,7 @@ bot.on('message', async (msg) => {
     // Проверка валидации (если есть)
     if (currentStage.validation && !currentStage.validation(userMessage)) {
       logger.warn(`Неверный ответ от chatId: ${chatId}, текст: ${userMessage}`);
-      await sendMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
+      await sendTypingMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
       return;
     }
 
@@ -178,26 +178,22 @@ bot.on('message', async (msg) => {
     userHistories[chatId] = userHistories[chatId] || [];
     userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
 
-    // Генерация ответа через Gemini
-    const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
-    logger.info(`Отправка запроса к Gemini API для chatId: ${chatId}`);
-    const botReply = await sendToGemini(combinedPrompt, chatId);
-    await sendMessage(chatId, botReply);
-
     // Переход к следующему этапу
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
+      const nextQuestion = getNextQuestionWithEmotion(nextStage);
       logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
-      await sendMessage(chatId, nextStage.text);
+      await sendTypingMessage(chatId, nextQuestion);
     } else {
+      // Завершение диалога
       delete userStages[chatId];
       logger.info(`Завершение диалога для chatId: ${chatId}`);
-      await sendMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
+      await sendTypingMessage(chatId, "Сп��сибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
     }
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
-    await sendMessage(chatId, `Произошла ошибка: ${error.message}`);
+    await sendTypingMessage(chatId, `Произошла ошибка: ${error.message}`);
   }
 });
 
