@@ -109,40 +109,48 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
 
+  // Игнорируем команды
   if (userMessage.startsWith('/')) return;
 
   try {
-    if (!userStages[chatId]) {
-      userStages[chatId] = 0;
-      const currentStage = dialogStages.questions[userStages[chatId]];
-      await sendMessage(chatId, currentStage.text);
-      return;
+    // Если это первый этап, начать с нуля
+    if (userStages[chatId] === undefined) {
+      userStages[chatId] = 0; // Устанавливаем начальный этап
     }
 
     const currentStage = dialogStages.questions[userStages[chatId]];
 
+    // Проверка валидации (если есть)
     if (currentStage.validation && !currentStage.validation(userMessage)) {
       await sendMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
       return;
     }
 
+    // Сохраняем ответ пользователя
+    userHistories[chatId] = userHistories[chatId] || [];
+    userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
+
+    // Генерация ответа (если это необходимо)
     const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
     const botReply = await sendToGemini(combinedPrompt, chatId);
     await sendMessage(chatId, botReply);
 
+    // Переход к следующему этапу
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
       await sendMessage(chatId, nextStage.text);
     } else {
-      userStages[chatId] = null; // Завершаем диалог
-      await sendMessage(chatId, "Спасибо! Мы закончили диалог.");
+      // Завершение диалога
+      delete userStages[chatId];
+      await sendMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
     }
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
     await sendMessage(chatId, `Произошла ошибка: ${error.message}`);
   }
 });
+
 
 // **Express-сервер**
 const app = express();
