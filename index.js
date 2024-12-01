@@ -22,13 +22,15 @@ const config = {
   REQUEST_LIMIT: 5,
   REQUEST_WINDOW: 60000,
   PORT: process.env.PORT || 3000,
+  GROUP_CHAT_ID: '-4522204925',
+  BOT_TOKEN: '2111920825:AAGVeO134IP43jQdU9GNQRJw0gUcJPocqaU',
 };
 
 // Инициализация GoogleGenerativeAI
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// Иниц��ализация Telegram Bot
+// Инициализация Telegram Bot
 const bot = new TelegramBot(config.TELEGRAM_TOKEN);
 bot.setWebHook(`${config.WEBHOOK_URL}/bot${config.TELEGRAM_TOKEN}`);
 
@@ -118,7 +120,7 @@ async function sendMessage(chatId, text) {
 }
 
 // **Функция генерации следующего вопроса с эмоциональным присоединением**
-function getNextQuestionWithEmotion(stage) {
+function getNextQuestionWithEmotion(stage, followUp) {
   const emotions = [
     "Отлично! 😊",
     "Понял вас! 👍",
@@ -127,7 +129,9 @@ function getNextQuestionWithEmotion(stage) {
     "Прекрасно! 😃"
   ];
   const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
-  return `${randomEmotion} ${stage.text}`;
+  const randomFollowUp = followUp[Math.floor(Math.random() * followUp.length)];
+  const randomText = Array.isArray(stage.text) ? stage.text[Math.floor(Math.random() * stage.text.length)] : stage.text;
+  return `${randomEmotion} ${randomFollowUp} ${randomText}`;
 }
 
 // **Обработка команды /start**
@@ -150,6 +154,23 @@ bot.onText(/\/start/, async (msg) => {
   logger.info(`Отправка первого вопроса для chatId: ${chatId}`);
   await sendTypingMessage(chatId, firstStage.text);
 });
+
+// **Функция отправки данных в группу**
+async function sendCollectedDataToGroup(chatId) {
+  const userHistory = userHistories[chatId];
+  if (!userHistory) return;
+
+  const collectedData = userHistory.map(entry => `${entry.stage}: ${entry.response}`).join('\n');
+  const message = `Собранные данные:\n${collectedData}`;
+
+  try {
+    const groupBot = new TelegramBot(config.BOT_TOKEN);
+    await groupBot.sendMessage(config.GROUP_CHAT_ID, message);
+    logger.info(`Данные успешно отправлены в группу для chatId: ${chatId}`);
+  } catch (error) {
+    logger.error(`Ошибка при отправке данных в группу для chatId ${chatId}: ${error.message}`);
+  }
+}
 
 // **Обработка текстовых сообщений**
 bot.on('message', async (msg) => {
@@ -182,14 +203,21 @@ bot.on('message', async (msg) => {
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
-      const nextQuestion = getNextQuestionWithEmotion(nextStage);
+      const nextQuestion = nextStage.stage === "Темы" ? nextStage.text(userHistories[chatId][1].response) : nextStage.text;
+      const nextQuestionWithEmotion = getNextQuestionWithEmotion({ text: nextQuestion }, currentStage.followUp);
       logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
-      await sendTypingMessage(chatId, nextQuestion);
+      await sendTypingMessage(chatId, nextQuestionWithEmotion);
     } else {
       // Завершение диалога
       delete userStages[chatId];
       logger.info(`Завершение диалога для chatId: ${chatId}`);
-      await sendTypingMessage(chatId, "Сп��сибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
+      await sendTypingMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
+
+      // Сообщение о подтверждении времени
+      await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пару минут, ожидайте пожалуйста 😊");
+
+      // Отправка собранных данных в группу
+      await sendCollectedDataToGroup(chatId);
     }
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
