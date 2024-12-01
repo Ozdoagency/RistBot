@@ -10,12 +10,17 @@ const config = {
   TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || 'Ваш_Telegram_Token',
   WEBHOOK_URL: process.env.WEBHOOK_URL || 'Ваш_Webhook_Url',
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || 'Ваш_Gemini_API_Key',
-  GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/', // URL Gemini API
+  GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', // URL Gemini API
   MAX_TELEGRAM_MESSAGE_LENGTH: 4096,
   ADMIN_ID: process.env.ADMIN_ID || null,
   REQUEST_LIMIT: 5,
   REQUEST_WINDOW: 60000,
 };
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // Настройка Winston для логирования
 const logger = winston.createLogger({
