@@ -125,7 +125,7 @@ function containsNegativeWords(text) {
   return negativeWords.some(word => text.toLowerCase().includes(word));
 }
 
-// **Функция генерации следующего вопроса с эмоциональным присоединением**
+// **Функция ��енерации следующего вопроса с эмоциональным присоединением**
 function getNextQuestionWithEmotion(stage, followUp, userMessage) {
   const positiveEmotions = [
     "Отлично! 😊",
@@ -165,7 +165,7 @@ function getNextQuestionWithEmotion(stage, followUp, userMessage) {
 // **Обработка команды /start**
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-  logger.info(`Получена команда /start от chatId: ${chatId}`);
+  logger.info(`Полу��ена команда /start от chatId: ${chatId}`);
 
   // Сбрасываем данные пользователя
   userHistories[chatId] = [];
