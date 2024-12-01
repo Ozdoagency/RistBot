@@ -50,7 +50,6 @@ const userRequestTimestamps = {};
 let userStages = {}; // Хранение текущего этапа для каждого пользователя
 
 // Функция для отправки запроса в GEMINI API с обработкой ошибок и ограничением запросов
-async function sendToGemini(prompt, chatId) {
   try {
     logger.info(`Отправка запроса к Gemini API от chatId ${chatId}: "${prompt}"`);
 
@@ -146,38 +145,30 @@ bot.on('message', async (msg) => {
     }
 
     // Проверяем, если пользователь выражает сомнения (обработка возражений)
-    if (userMessage.toLowerCase().includes("дорого") || userMessage.toLowerCase().includes("нет времени")) {
-      const objectionReply = objectionHandling.noTime;
-      await sendMessage(chatId, objectionReply);
-      return;
+    async function sendToGemini(prompt, chatId) {
+      try {
+        logger.info(`Отправка запроса к Gemini API от chatId ${chatId}: "${prompt}"`);
+    
+        const result = await model.generateContent(prompt);
+    
+        // Логируем весь ответ
+        logger.info(`Полный ответ от Gemini API для chatId ${chatId}: ${JSON.stringify(result)}`);
+    
+        // Проверка наличия кандидатов в ответе
+        if (result.response && result.response.candidates && result.response.candidates.length > 0) {
+          const reply = result.response.candidates[0].content.parts[0].text || 'Ответ отсутствует.';
+          logger.info(`Ответ от Gemini API для chatId ${chatId}: "${reply}"`);
+          return reply;
+        } else {
+          logger.warn(`Gemini API не вернул кандидатов для chatId ${chatId}.`);
+          return 'Извините, я не смог обработать ваш запрос. Gemini API не вернул текст.';
+        }
+      } catch (error) {
+        logger.error(`Ошибка Gemini API для chatId ${chatId}: ${error.message}`);
+        throw new Error(`Произошла ошибка при обработке запроса: ${error.message}`);
+      }
     }
-
-    // Проверка валидации, если она задана
-    if (currentStage.validation && !currentStage.validation(userMessage)) {
-      await sendMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
-      return;
-    }
-
-    // Формируем следующий промпт
-    const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
-    const botReply = await sendToGemini(combinedPrompt, chatId);
-
-    // Переход к следующему этапу
-    userStages[chatId]++;
-    if (userStages[chatId] < dialogStages.questions.length) {
-      const nextStage = dialogStages.questions[userStages[chatId]];
-      await sendMessage(chatId, botReply);
-      await sendMessage(chatId, nextStage.text);
-    } else {
-      // Завершение диалога
-      await sendMessage(chatId, dialogStages.questions[dialogStages.questions.length - 1].text);
-      delete userStages[chatId]; // Сброс состояния
-    }
-  } catch (error) {
-    logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
-    await sendMessage(chatId, `Произошла ошибка: ${error.message}`);
-  }
-});
+    
 
 
 // Express-сервер
