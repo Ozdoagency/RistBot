@@ -121,7 +121,7 @@ async function sendMessage(chatId, text) {
 
 // **Функция проверки негативных слов**
 function containsNegativeWords(text) {
-  const negativeWords = ["ухудшились", "проблемы", "пробелы", "трудности", "сложности"];
+  const negativeWords = ["ухудшились", "проблемы", "пробелы", "трудности", "сложности", "печально"];
   return negativeWords.some(word => text.toLowerCase().includes(word));
 }
 
@@ -130,7 +130,7 @@ function getNextQuestionWithEmotion(stage, followUp, userMessage) {
   const positiveEmotions = [
     "Отлично! 😊",
     "Понял вас! 👍",
-    "Замечател��но! 🌟",
+    "Замечательно! 🌟",
     "Хорошо! 👌",
     "Прекрасно! 😃"
   ];
@@ -141,8 +141,21 @@ function getNextQuestionWithEmotion(stage, followUp, userMessage) {
     "Понял, спасибо.",
     "Спасибо за ответ."
   ];
+  const sympatheticEmotions = [
+    "Понимаю, это может быть сложно.",
+    "Сожалею, что у вас возникли такие трудности.",
+    "Понимаю, это важно.",
+    "Сожалею, что у вас возникли такие проблемы.",
+    "Понимаю, это может быть неприятно."
+  ];
 
-  const emotions = containsNegativeWords(userMessage) ? neutralEmotions : positiveEmotions;
+  let emotions;
+  if (containsNegativeWords(userMessage)) {
+    emotions = sympatheticEmotions;
+  } else {
+    emotions = positiveEmotions;
+  }
+
   const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
   const randomFollowUp = followUp[Math.floor(Math.random() * followUp.length)];
   const randomText = Array.isArray(stage.text) ? stage.text[Math.floor(Math.random() * stage.text.length)] : stage.text;
@@ -157,7 +170,7 @@ bot.onText(/\/start/, async (msg) => {
   // Сбрасываем данные пользователя
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
-  userStages[chatId] = 0; // Устанавливаем началь��ый этап
+  userStages[chatId] = 0; // Устанавливаем начальный этап
 
   const firstName = msg.from.first_name || 'пользователь';
   const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас!`;
@@ -197,43 +210,12 @@ bot.on('message', async (msg) => {
   if (userMessage.startsWith('/')) return;
 
   try {
-    if (userStages[chatId] === undefined) {
-      userStages[chatId] = 0; // Устанавливаем начальный этап
-    }
+    // Отправка сообщения пользователя в Gemini API
+    const prompt = `Пользователь: ${userMessage}\nИИ:`;
+    const aiResponse = await sendToGemini(prompt, chatId);
 
-    const currentStage = dialogStages.questions[userStages[chatId]];
-
-    // Проверка валидации (если есть)
-    if (currentStage.validation && !currentStage.validation(userMessage)) {
-      logger.warn(`Неверный ответ от chatId: ${chatId}, текст: ${userMessage}`);
-      await sendTypingMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
-      return;
-    }
-
-    // Сохраняем ответ пользователя
-    userHistories[chatId] = userHistories[chatId] || [];
-    userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
-
-    // Переход к следующему этапу
-    userStages[chatId]++;
-    if (userStages[chatId] < dialogStages.questions.length) {
-      const nextStage = dialogStages.questions[userStages[chatId]];
-      const nextQuestion = nextStage.stage === "Темы" ? nextStage.text(userHistories[chatId][1].response) : nextStage.text;
-      const nextQuestionWithEmotion = getNextQuestionWithEmotion({ text: nextQuestion }, currentStage.followUp, userMessage);
-      logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
-      await sendTypingMessage(chatId, nextQuestionWithEmotion);
-    } else {
-      // Завершение диалога
-      delete userStages[chatId];
-      logger.info(`Завершение диалога для chatId: ${chatId}`);
-      await sendTypingMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
-
-      // Сообщение о подтверждении времени
-      await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пар�� минут, ожидайте пожалуйста 😊");
-
-      // Отправка собранных данных в группу
-      await sendCollectedDataToGroup(chatId);
-    }
+    // Отправка ответа от Gemini API пользователю
+    await sendTypingMessage(chatId, aiResponse);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
     await sendTypingMessage(chatId, `Произошла ошибка: ${error.message}`);
