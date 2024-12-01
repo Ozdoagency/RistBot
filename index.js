@@ -4,6 +4,11 @@ import bodyParser from 'body-parser';
 import winston from 'winston';
 import axios from 'axios';
 
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+// Инициализация GoogleGenerativeAI
+const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // Конфигурация (можно вынести в отдельный файл config.json)
 const config = {
@@ -16,11 +21,6 @@ const config = {
   REQUEST_LIMIT: 5,
   REQUEST_WINDOW: 60000,
 };
-
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-
-const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // Настройка Winston для логирования
 const logger = winston.createLogger({
@@ -48,23 +48,11 @@ async function sendToGemini(prompt, chatId) {
   try {
     logger.info(`Отправка запроса к Gemini API от chatId ${chatId}: "${prompt}"`);
 
-    const response = await axios.post(
-      `${config.GEMINI_API_URL}models/gemini-1.5-flash:generateText`,
-      {
-        prompt, // Текст запроса пользователя
-        max_tokens: 200, // Максимальное количество токенов
-        temperature: 0.7, // Настройка "творческого" уровня
-        top_p: 0.9, // Настройка вероятности выборки
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${config.GEMINI_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    // Генерация контента через Gemini API
+    const result = await model.generateContent(prompt);
 
-    const reply = response.data.text || 'Извините, я не смог обработать ваш запрос.';
+    // Получение текста из ответа
+    const reply = result.response.text || 'Извините, я не смог обработать ваш запрос.';
     logger.info(`Ответ от Gemini API для chatId ${chatId}: "${reply}"`);
     return reply;
   } catch (error) {
@@ -75,6 +63,7 @@ async function sendToGemini(prompt, chatId) {
     throw new Error(`Произошла ошибка при обработке запроса: ${error.message}`);
   }
 }
+
 
 
 
@@ -106,22 +95,16 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
   if (userMessage.startsWith('/')) return;
-  const firstName = msg.from.first_name || 'пользователь';
 
   try {
-    userHistories[chatId] = userHistories[chatId] || [];
-    logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
-    userHistories[chatId].push({ user: userMessage });
-
     const botReply = await sendToGemini(userMessage, chatId);
-    const formattedReply = formatGradioResponse(botReply);
     await sendMessage(chatId, botReply);
-    logger.info(`Отправка ответа для chatId ${chatId}: "${formattedReply}"`);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
-    await sendMessage(chatId, `Извините, ${firstName}, произошла ошибка: ${error.message}`);
+    await sendMessage(chatId, `Произошла ошибка: ${error.message}`);
   }
 });
+
 
 // Express-сервер
 const app = express();
