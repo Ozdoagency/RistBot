@@ -3,7 +3,6 @@ import TelegramBot from 'node-telegram-bot-api';
 import express from 'express';
 import bodyParser from 'body-parser';
 import winston from 'winston';
-import axios from 'axios';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import basePrompt from './prompts/basePrompt.js';
@@ -22,6 +21,7 @@ const config = {
   ADMIN_ID: process.env.ADMIN_ID || null,
   REQUEST_LIMIT: 5,
   REQUEST_WINDOW: 60000,
+  PORT: process.env.PORT || 3000,
 };
 
 // Инициализация GoogleGenerativeAI
@@ -29,7 +29,8 @@ const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // Инициализация Telegram Bot
-const bot = new TelegramBot(config.TELEGRAM_TOKEN, { polling: true });
+const bot = new TelegramBot(config.TELEGRAM_TOKEN);
+bot.setWebHook(`${config.WEBHOOK_URL}/bot${config.TELEGRAM_TOKEN}`);
 
 // Логирование с помощью Winston
 const logger = winston.createLogger({
@@ -113,7 +114,6 @@ bot.on('message', async (msg) => {
   if (userMessage.startsWith('/')) return;
 
   try {
-    // Если это первый этап, начать с нуля
     if (userStages[chatId] === undefined) {
       userStages[chatId] = 0; // Устанавливаем начальный этап
     }
@@ -130,7 +130,7 @@ bot.on('message', async (msg) => {
     userHistories[chatId] = userHistories[chatId] || [];
     userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
 
-    // Генерация ответа (если это необходимо)
+    // Генерация ответа через Gemini
     const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
     const botReply = await sendToGemini(combinedPrompt, chatId);
     await sendMessage(chatId, botReply);
@@ -141,7 +141,6 @@ bot.on('message', async (msg) => {
       const nextStage = dialogStages.questions[userStages[chatId]];
       await sendMessage(chatId, nextStage.text);
     } else {
-      // Завершение диалога
       delete userStages[chatId];
       await sendMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
     }
@@ -150,7 +149,6 @@ bot.on('message', async (msg) => {
     await sendMessage(chatId, `Произошла ошибка: ${error.message}`);
   }
 });
-
 
 // **Express-сервер**
 const app = express();
@@ -170,6 +168,6 @@ app.get('/', (req, res) => {
   res.send('Сервер работает! 🚀');
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  logger.info(`Сервер запущен на порту ${process.env.PORT || 3000}`);
+app.listen(config.PORT, () => {
+  logger.info(`Сервер запущен на порту ${config.PORT}`);
 });
