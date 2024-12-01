@@ -171,6 +171,7 @@ async function getNextQuestionWithEmotion(stage, userMessage, chatId) {
 // **Обработка команды /start**
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
+  const firstName = msg.from.first_name || '';
   logger.info(`Получена команда /start от chatId: ${chatId}`);
 
   // Инициализация данных пользователя
@@ -189,8 +190,9 @@ bot.onText(/\/start/, async (msg) => {
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: Date.now() };
 
-  const firstName = msg.from.first_name || 'пользователь';
-  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для бесплатных пробных уроков, мне нужно задать пару вопросов.\n\nРасскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
+  // Получаем приветственное сообщение из dialogStages и подставляем имя
+  const welcomeStage = dialogStages.questions.find(q => q.stage === "Приветствие и цель");
+  const welcomeMessage = welcomeStage.text.replace('{name}', firstName);
 
   logger.info(`Отправка приветственного сообщения для chatId: ${chatId}`);
   await sendTypingMessage(chatId, welcomeMessage);
