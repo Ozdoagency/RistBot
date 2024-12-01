@@ -127,7 +127,7 @@ async function sendCollectedDataToGroup(chatId) {
   if (!userHistory) return;
 
   const collectedData = userHistory.map(entry => `${entry.stage}: ${entry.response}`).join('\n');
-  const message = `Собранные данные:\n${collectedData}`;
+  const message = `Собранн��е данные:\n${collectedData}`;
 
   try {
     const groupBot = new TelegramBot(config.BOT_TOKEN);
@@ -173,13 +173,13 @@ bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   logger.info(`Получена команда /start от chatId: ${chatId}`);
 
-  // Сбрасываем данные п��льзователя
+  // Сбрасываем данные пользователя
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
   userStages[chatId] = 0; // Устанавливаем начальный этап
 
   const firstName = msg.from.first_name || 'пользователь';
-  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для бесплатных пробных уроков, мне нужно задать пару вопросов.\n\nРасскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
+  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктори��, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для бесплатных пробных уроков, мне нужно задать пару вопросов.\n\nРасскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
 
   logger.info(`Отправка приветственного сообщения для chatId: ${chatId}`);
   await sendTypingMessage(chatId, welcomeMessage);
@@ -196,18 +196,18 @@ bot.on('message', async (msg) => {
 
   try {
     // Проверка текущего этапа диалога
-    if (userStages[chatId] === undefined) {
-      userStages[chatId] = 0; // Устанавливаем начальный этап
+    if (typeof userStages[chatId] !== 'object') {
+      userStages[chatId] = { stage: 0, data: {}, askedPhone: false }; // Устанавливаем начальный этап и инициализируем данные
     }
 
-    const currentStage = dialogStages.questions[userStages[chatId]];
+    const currentStage = dialogStages.questions[userStages[chatId].stage];
 
     // Сохранение истории диалога
     userHistories[chatId] = userHistories[chatId] || [];
     userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
 
     // Переход к следующему этапу
-    userStages[chatId]++;
+    userStages[chatId].stage++;
     await askNextQuestion(chatId, userStages, bot);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
