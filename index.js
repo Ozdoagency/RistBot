@@ -149,6 +149,7 @@ bot.on('message', async (msg) => {
       try {
         logger.info(`Отправка запроса к Gemini API от chatId ${chatId}: "${prompt}"`);
     
+        // Генерация контента через Gemini API
         const result = await model.generateContent(prompt);
     
         // Логируем весь ответ
@@ -158,7 +159,7 @@ bot.on('message', async (msg) => {
         if (result.response && result.response.candidates && result.response.candidates.length > 0) {
           const reply = result.response.candidates[0].content.parts[0].text || 'Ответ отсутствует.';
           logger.info(`Ответ от Gemini API для chatId ${chatId}: "${reply}"`);
-          return reply;
+          return reply; // Это возвращается только внутри функции
         } else {
           logger.warn(`Gemini API не вернул кандидатов для chatId ${chatId}.`);
           return 'Извините, я не смог обработать ваш запрос. Gemini API не вернул текст.';
@@ -169,7 +170,6 @@ bot.on('message', async (msg) => {
       }
     }
     
-
 
 // Express-сервер
 const app = express();
