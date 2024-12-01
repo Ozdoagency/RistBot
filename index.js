@@ -140,7 +140,7 @@ async function sendCollectedDataToGroup(chatId) {
 function generatePrompt(userMessage, chatId) {
   const userHistory = userHistories[chatId] || [];
   const context = userHistory.map(entry => `Пользователь: ${entry.response}\nИИ: ${entry.reply}`).join('\n');
-  return `${context}\nПользователь: ${userMessage}\nИИ:`;
+  return `${context}\nПользователь: ${userMessage}\нИИ:`;
 }
 
 // **Функция обработки длинных ответов**
@@ -158,13 +158,12 @@ async function handleLongResponse(chatId, response) {
 }
 
 // **Функция генерации следующего вопроса с эмоциональным присоединением**
-async function getNextQuestionWithEmotion(stage, followUp, userMessage, chatId) {
-  const prompt = `Пользователь: ${userMessage}\nИИ:`;
+async function getNextQuestionWithEmotion(stage, userMessage, chatId) {
+  const prompt = `Пользователь: ${userMessage}\нИИ:`;
   const aiResponse = await sendToGemini(prompt, chatId);
 
-  const randomFollowUp = followUp[Math.floor(Math.random() * followUp.length)];
   const randomText = Array.isArray(stage.text) ? stage.text[Math.floor(Math.random() * stage.text.length)] : stage.text;
-  return `${aiResponse} ${randomFollowUp} ${randomText}`;
+  return `${aiResponse} ${randomText}`;
 }
 
 // **Обработка команды /start**
@@ -178,7 +177,7 @@ bot.onText(/\/start/, async (msg) => {
   userStages[chatId] = 0; // Устанавливаем начальный этап
 
   const firstName = msg.from.first_name || 'пользователь';
-  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для пробных уроков, мне нужно задать пару вопросов.\n\nРасскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
+  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для пробных уроков, мне нужно задать пару вопросов.\н\nРасскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
 
   logger.info(`Отправка приветственного сообщения для chatId: ${chatId}`);
   await sendTypingMessage(chatId, welcomeMessage);
@@ -196,7 +195,7 @@ bot.on('message', async (msg) => {
   try {
     // Проверка текущего этапа диалога
     if (userStages[chatId] === undefined) {
-      userStages[chatId] = 0; // Устанавливаем начальн��й этап
+      userStages[chatId] = 0; // Устанавливаем начальный этап
     }
 
     const currentStage = dialogStages.questions[userStages[chatId]];
@@ -220,7 +219,7 @@ bot.on('message', async (msg) => {
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
-      const nextQuestionWithEmotion = await getNextQuestionWithEmotion(nextStage, currentStage.followUp, userMessage, chatId);
+      const nextQuestionWithEmotion = await getNextQuestionWithEmotion(nextStage, userMessage, chatId);
       logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
       await sendTypingMessage(chatId, nextQuestionWithEmotion);
     } else {
@@ -260,5 +259,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(config.PORT, () => {
-  logger.info(`Сервер запущен на порту ${config.PORT}`);
+  logger.info(`Сервер запущен на ��орту ${config.PORT}`);
 });
