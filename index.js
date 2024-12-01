@@ -2,13 +2,16 @@ import TelegramBot from 'node-telegram-bot-api';
 import express from 'express';
 import bodyParser from 'body-parser';
 import winston from 'winston';
-import { Client } from '@gradio/client';
+import axios from 'axios';
+
 
 // Конфигурация (можно вынести в отдельный файл config.json)
 const config = {
-  TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || '7733244277:AAFa1YylutZKqaEw0LjBTDRKxZymWz91LPs',
+  TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || '7522443699:AAEMCjrIaERF6Z-QPqKJZPmwfuHCT0RKVR4',
   WEBHOOK_URL: process.env.WEBHOOK_URL || 'https://ristbot.onrender.com',
-  GRADIO_SPACE: process.env.GRADIO_SPACE || 'Ozdo/Qwen-Qwen2.5-Coder-32B-Instruct',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || 'AIzaSyBm-r1xP_FWnhWpUDuODUbIzTlE2v964-8',
+  GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/', // Убедитесь, что это правильный URL
+}
   MAX_TELEGRAM_MESSAGE_LENGTH: 4096,
   ADMIN_ID: process.env.ADMIN_ID || null,
   REQUEST_LIMIT: 5,
@@ -36,65 +39,40 @@ bot.setWebHook(`${config.WEBHOOK_URL}/bot${config.TELEGRAM_TOKEN}`);
 const userHistories = {};
 const userRequestTimestamps = {};
 
-// Функция для отправки запроса в Gradio API с обработкой ошибок и ограничением запросов
-async function sendToGradio(message, chatId) {
-  const now = Date.now();
-  const timestampData = userRequestTimestamps[chatId] || { count: 0, timestamp: 0 };
-  const requestCount = timestampData.count;
-
-  if (now - timestampData.timestamp < config.REQUEST_WINDOW && requestCount >= config.REQUEST_LIMIT) {
-    const remainingTime = Math.ceil((config.REQUEST_WINDOW - (now - timestampData.timestamp)) / 1000);
-    throw new Error(`Превышено количество запросов. Пожалуйста, подождите ${remainingTime} секунд.`);
-  }
-
+// Функция для отправки запроса в GEMINI API с обработкой ошибок и ограничением запросов
+async function sendToGemini(prompt, chatId) {
   try {
-    logger.info(`Отправка запроса к Gradio API от chatId ${chatId}: "${message}"`);
-    const client = await Client.connect(config.GRADIO_SPACE);
+    logger.info(`Отправка запроса к Gemini API от chatId ${chatId}: "${prompt}"`);
 
-    try {
-      const testResponse = await client.predict('/test');
-      if (!testResponse.success) {
-        throw new Error('Gradio API недоступен.');
+    const response = await axios.post(
+      `${config.GEMINI_API_URL}models/gemini-1.5-flash:generateText`,
+      {
+        prompt, // Текст запроса пользователя
+        max_tokens: 200, // Максимальное количество токенов
+        temperature: 0.7, // Настройка "творческого" уровня
+        top_p: 0.9, // Настройка вероятности выборки
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${config.GEMINI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
       }
-    } catch (testError) {
-      throw new Error(`Ошибка проверки доступности Gradio: ${testError.message}`);
-    }
+    );
 
-    const result = await client.predict('/chat', { message, max_tokens: 200, temperature: 0.7, top_p: 0.9 });
-    const response = result.data || '';
-    logger.info(`Успешный ответ от Gradio API для chatId ${chatId}: "${response}"`);
-    userRequestTimestamps[chatId] = { count: requestCount + 1, timestamp: now };
-    return response;
+    const reply = response.data.text || 'Извините, я не смог обработать ваш запрос.';
+    logger.info(`Ответ от Gemini API для chatId ${chatId}: "${reply}"`);
+    return reply;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`Ошибка Gradio API для chatId ${chatId}: ${errorMessage}`);
+    logger.error(`Ошибка Gemini API для chatId ${chatId}: ${error.message}`);
     if (config.ADMIN_ID) {
-      bot.sendMessage(config.ADMIN_ID, `Ошибка Gradio API: ${errorMessage} (chatId: ${chatId})`);
+      bot.sendMessage(config.ADMIN_ID, `Ошибка Gemini API: ${error.message} (chatId: ${chatId})`);
     }
-    throw new Error(`Произошла ошибка при обработке запроса: ${errorMessage}`);
+    throw new Error(`Произошла ошибка при обработке запроса: ${error.message}`);
   }
 }
 
-// Форматирование ответа от Gradio API с обработкой нестроковых ответов
-function formatGradioResponse(response) {
-  if (typeof response === 'string') {
-    const cleanedResponse = response.replace(/<\|.*?\|>/g, '').trim();
-    return cleanedResponse || 'Извините, я не смог понять ваш запрос.';
-  } else if (typeof response === 'object' && response !== null) {
-    try {
-      const jsonString = JSON.stringify(response, null, 2);
-      const trimmedJson = jsonString.length > config.MAX_TELEGRAM_MESSAGE_LENGTH ?
-                         `${jsonString.substring(0, config.MAX_TELEGRAM_MESSAGE_LENGTH - 3)}...` :
-                         jsonString;
-      return trimmedJson;
-    } catch (jsonError) {
-      logger.error(`Ошибка преобразования ответа Gradio в JSON: ${jsonError.message}`);
-      return 'Извините, я не смог обработать ответ от сервера.';
-    }
-  } else {
-    return 'Извините, я не смог понять ваш запрос.';
-  }
-}
+
 
 // Отправка сообщения в Telegram с проверкой длины
 async function sendMessage(chatId, text) {
@@ -131,9 +109,9 @@ bot.on('message', async (msg) => {
     logger.info(`Получено сообщение от chatId ${chatId}: "${userMessage}"`);
     userHistories[chatId].push({ user: userMessage });
 
-    const botReply = await sendToGradio(userMessage, chatId);
+    const botReply = await sendToGemini(userMessage, chatId);
     const formattedReply = formatGradioResponse(botReply);
-    await sendMessage(chatId, formattedReply);
+    await sendMessage(chatId, botReply);
     logger.info(`Отправка ответа для chatId ${chatId}: "${formattedReply}"`);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
