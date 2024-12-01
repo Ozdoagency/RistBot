@@ -26,8 +26,10 @@ const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // Инициализация Telegram Bot
-const bot = new TelegramBot(config.TELEGRAM_TOKEN);
-bot.setWebHook(`${config.WEBHOOK_URL}/bot${config.TELEGRAM_TOKEN}`);
+const bot = new TelegramBot(config.TELEGRAM_TOKEN, { polling: true });
+bot.setWebHook(`${config.WEBHOOK_URL}/bot${config.TELEGRAM_TOKEN}`)
+  .then(() => logger.info('Webhook успешно установлен'))
+  .catch(error => logger.error(`Ошибка при установке webhook: ${error.message}`));
 
 // Логирование с помощью Winston
 const logger = winston.createLogger({
@@ -216,7 +218,7 @@ bot.on('message', async (msg) => {
       // Сообщение о подтверждении времени
       await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пару минут, ожидайте пожалуйста 😊");
 
-      // Отправка собранных данных в груп��у
+      // Отправка собранных данных в группу
       await sendCollectedDataToGroup(chatId);
     }
   } catch (error) {
