@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import logger from './logger.js';
+import dialogStages from './prompts.js';
 
 export const sendSummaryToSecondBot = async (bot, summary) => {
   const SECOND_BOT_TOKEN = "2111920825:AAEi07nuwAG92q4gqrEcnzZJ_WT8dp9-ieA";

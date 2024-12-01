@@ -1,4 +1,4 @@
-import dialogStages from './prompts/dialogStages.js';
+import dialogStages from './prompts.js';
 import { sendSummaryToSecondBot } from './summaryHandler.js';
 import { sendMessageWithCheck } from './messageUtils.js';
 import logger from './logger.js';

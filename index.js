@@ -4,12 +4,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import winston from 'winston';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
-import basePrompt from './prompts/basePrompt.js';
-import dialogStages from './prompts/dialogStages.js';
-import generalQuestions from './prompts/generalQuestions.js';
-import objectionHandling from './prompts/objectionHandling.js';
-import pricing from './prompts/pricing.js';
+import dialogStages from './prompts.js';
 
 // Конфигурация
 const config = {
@@ -55,7 +50,7 @@ let userStages = {}; // Хранение текущего этапа для ка
 // **Функция sendToGemini**
 async function sendToGemini(prompt, chatId) {
   try {
-    logger.info(`Отправка запроса �� Gemini API от chatId ${chatId}: "${prompt}"`);
+    logger.info(`Отправка запроса в Gemini API от chatId ${chatId}: "${prompt}"`);
     const result = await model.generateContent(prompt);
 
     logger.info(`Полный ответ от Gemini API для chatId ${chatId}: ${JSON.stringify(result)}`);
@@ -139,7 +134,7 @@ async function sendCollectedDataToGroup(chatId) {
 // **Функция генерации промпта для Gemini API**
 function generatePrompt(userMessage, chatId) {
   const userHistory = userHistories[chatId] || [];
-  const context = userHistory.map(entry => `Пользователь: ${entry.response}\нИИ: ${entry.reply}`).join('\n');
+  const context = userHistory.map(entry => `Пользователь: ${entry.response}\нИИ: ${entry.reply}`).join('\н');
   return `${context}\нПользователь: ${userMessage}\нИИ:`;
 }
 
@@ -200,28 +195,17 @@ bot.on('message', async (msg) => {
 
     const currentStage = dialogStages.questions[userStages[chatId]];
 
-    // Генерация промпта для Gemini API
-    const prompt = generatePrompt(userMessage, chatId);
-    const aiResponse = await sendToGemini(prompt, chatId);
-
     // Сохранение истории диалога
     userHistories[chatId] = userHistories[chatId] || [];
-    userHistories[chatId].push({ response: userMessage, reply: aiResponse });
-
-    // Отправка ответа от Gemini API пользователю
-    if (aiResponse.length > config.MAX_TELEGRAM_MESSAGE_LENGTH) {
-      await handleLongResponse(chatId, aiResponse);
-    } else {
-      await sendTypingMessage(chatId, aiResponse);
-    }
+    userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
 
     // Переход к следующему этапу
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
-      const nextQuestionWithEmotion = await getNextQuestionWithEmotion(nextStage, userMessage, chatId);
+      const nextQuestion = Array.isArray(nextStage.text) ? nextStage.text[Math.floor(Math.random() * nextStage.text.length)] : nextStage.text;
       logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
-      await sendTypingMessage(chatId, nextQuestionWithEmotion);
+      await sendTypingMessage(chatId, nextQuestion);
     } else {
       // Завершение диалога
       delete userStages[chatId];
@@ -231,7 +215,7 @@ bot.on('message', async (msg) => {
       // Сообщение о подтверждении времени
       await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пару минут, ожидайте пожалуйста 😊");
 
-      // Отправка собранных данных в группу
+      // Отправка собранных данных в груп��у
       await sendCollectedDataToGroup(chatId);
     }
   } catch (error) {
