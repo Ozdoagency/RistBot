@@ -19,8 +19,8 @@ const config = {
   REQUEST_LIMIT: 5,
   REQUEST_WINDOW: 60000,
   PORT: process.env.PORT || 8443, // Изменен порт на 8443
-  GROUP_CHAT_ID: '-4522204925',
-  BOT_TOKEN: '2111920825:AAGVeO134IP43jQdU9GNQRJw0gUcJPocqaU',
+  GROUP_CHAT_ID: process.env.GROUP_CHAT_ID || '-4522204925', // Убедитесь, что это правильный ID группы
+  BOT_TOKEN: process.env.TELEGRAM_TOKEN || '2111920825:AAGVeO134IP43jQdU9GNQRJw0gUcJPocqaU',
 };
 
 // Инициализация GoogleGenerativeAI
@@ -138,7 +138,7 @@ async function sendCollectedDataToGroup(chatId) {
   }
 }
 
-// **Функция генерации промпта для Gemini API**
+// **Функция ге��ерации промпта для Gemini API**
 function generatePrompt(userMessage, chatId) {
   const userHistory = userHistories[chatId] || [];
   const context = userHistory.map(entry => `Пользователь: ${entry.response}\нИИ: ${entry.reply}`).join('\н');
@@ -168,7 +168,7 @@ async function getNextQuestionWithEmotion(stage, userMessage, chatId) {
   return `${aiResponse} ${randomText}`;
 }
 
-// **Обработка команды /start**
+// **Об��аботка команды /start**
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   const firstName = msg.from.first_name || '';
@@ -204,7 +204,7 @@ bot.on('message', async (msg) => {
   const userMessage = msg.text;
   
   try {
-    // Игнорируем команды и пустые сообщения
+    // Игнорируем команды и пустые сообщени��
     if (!userMessage || userMessage.startsWith('/')) return;
 
     logger.info(`Получено сообщение от chatId: ${chatId}, текст: ${userMessage}`);

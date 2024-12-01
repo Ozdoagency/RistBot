@@ -65,10 +65,25 @@ export const askNextQuestion = async (chatId, userState, bot, userMessage) => {
       const summary = {
         goal: user.data.goal || "Не указано",
         grade: user.data.grade || "Не указано",
-        knowledge: user.data.knowledge || "Не указано",
+        knowledge: user.data.knowledge || "Не ук��зано",
         date: user.data.date || "Не указано",
         phone: user.data.phone || "Не указано"
       };
+
+      // Отправляем сообщение в группу
+      const groupMessage = `🎯 Новая заявка!\n\n` +
+        `Цель: ${summary.goal}\n` +
+        `Класс: ${summary.grade}\n` +
+        `Темы: ${summary.knowledge}\n` +
+        `Время: ${summary.date}\n` +
+        `Телефон: ${summary.phone}`;
+
+      try {
+        await bot.sendMessage(process.env.GROUP_CHAT_ID, groupMessage);
+        logger.info(`Уведомление отправлено в групповой чат`);
+      } catch (error) {
+        logger.error(`Ошибка отправки в групповой чат: ${error.message}`);
+      }
 
       await sendSummaryToSecondBot(bot, summary);
       await sendMessageWithCheck(bot, chatId, "Спасибо за ваши ответы! Мы свяжемся с вами в ближайшее время для подтверждения записи. 😊");
