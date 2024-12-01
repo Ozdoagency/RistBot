@@ -52,7 +52,7 @@ let userStages = {}; // Хранение текущего этапа для ка
 // **Функция sendToGemini**
 async function sendToGemini(prompt, chatId) {
   try {
-    logger.info(`Отправка запрос�� в Gemini API от chatId ${chatId}: "${prompt}"`);
+    logger.info(`Отправка запроса в Gemini API от chatId ${chatId}: "${prompt}"`);
     const result = await model.generateContent(prompt);
 
     logger.info(`Полный ответ от Gemini API для chatId ${chatId}: ${JSON.stringify(result)}`);
@@ -211,6 +211,10 @@ bot.on('message', async (msg) => {
       const nextStage = dialogStages.questions[userStages[chatId]];
       const nextQuestion = Array.isArray(nextStage.text) ? nextStage.text[Math.floor(Math.random() * nextStage.text.length)] : nextStage.text;
       logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
+      await sendTypingMessage(chatId, nextQuestion);
+    } else {
+      // Завершение диалога
+      delete userStages[chatId];
       logger.info(`Завершение диалога для chatId: ${chatId}`);
       await sendTypingMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
 
