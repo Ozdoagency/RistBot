@@ -119,81 +119,6 @@ async function sendMessage(chatId, text) {
   }
 }
 
-// **Функция проверки негативных слов**
-function containsNegativeWords(text) {
-  const negativeWords = ["ухудшились", "проблемы", "пробелы", "трудности", "сложности", "печально"];
-  return negativeWords.some(word => text.toLowerCase().includes(word));
-}
-
-// **Функция ��енерации следующего вопроса с эмоциональным присоединением**
-function getNextQuestionWithEmotion(stage, followUp, userMessage) {
-  const positiveEmotions = [
-    "Отлично! 😊",
-    "Понял вас! 👍",
-    "Замечательно! 🌟",
-    "Хорошо! 👌",
-    "Прекрасно! 😃"
-  ];
-  const neutralEmotions = [
-    "Понял вас.",
-    "Спасибо за информацию.",
-    "Хорошо, продолжим.",
-    "Понял, спасибо.",
-    "Спасибо за ответ."
-  ];
-  const sympatheticEmotions = [
-    "Понимаю, это может быть сложно.",
-    "Сожалею, что у вас возникли такие трудности.",
-    "Понимаю, это важно.",
-    "Сожалею, что у вас возникли такие проблемы.",
-    "Понимаю, это может быть неприятно."
-  ];
-
-  let emotions;
-  if (containsNegativeWords(userMessage)) {
-    emotions = sympatheticEmotions;
-  } else {
-    emotions = positiveEmotions;
-  }
-
-  const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
-  const randomFollowUp = followUp[Math.floor(Math.random() * followUp.length)];
-  const randomText = Array.isArray(stage.text) ? stage.text[Math.floor(Math.random() * stage.text.length)] : stage.text;
-  return `${randomEmotion} ${randomFollowUp} ${randomText}`;
-}
-
-// **Обработка команды /start**
-bot.onText(/\/start/, async (msg) => {
-  const chatId = msg.chat.id;
-  logger.info(`Полу��ена команда /start от chatId: ${chatId}`);
-
-  // Сбрасываем данные пользователя
-  userHistories[chatId] = [];
-  userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
-  userStages[chatId] = 0; // Устанавливаем начальный этап
-
-  const firstName = msg.from.first_name || 'пользователь';
-  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас!`;
-
-  logger.info(`Отправка приветственного сообщения для chatId: ${chatId}`);
-  await sendTypingMessage(chatId, welcomeMessage);
-
-  // Генерация промпта для приветствия
-  const prompt = generatePrompt(welcomeMessage, chatId);
-  const aiResponse = await sendToGemini(prompt, chatId);
-
-  // Сохранение истории диалога
-  userHistories[chatId].push({ response: welcomeMessage, reply: aiResponse });
-
-  // Отправка ответа от Gemini API пользователю
-  await sendTypingMessage(chatId, aiResponse);
-
-  // Отправка первого вопроса
-  const firstStage = dialogStages.questions[userStages[chatId]];
-  logger.info(`Отправка первого вопроса для chatId: ${chatId}`);
-  await sendTypingMessage(chatId, firstStage.text);
-});
-
 // **Функция отправки данных в группу**
 async function sendCollectedDataToGroup(chatId) {
   const userHistory = userHistories[chatId];
@@ -232,6 +157,33 @@ async function handleLongResponse(chatId, response) {
   }
 }
 
+// **Функция генерации следующего вопроса с эмоциональным присоединением**
+async function getNextQuestionWithEmotion(stage, followUp, userMessage, chatId) {
+  const prompt = `Пользователь: ${userMessage}\nИИ:`;
+  const aiResponse = await sendToGemini(prompt, chatId);
+
+  const randomFollowUp = followUp[Math.floor(Math.random() * followUp.length)];
+  const randomText = Array.isArray(stage.text) ? stage.text[Math.floor(Math.random() * stage.text.length)] : stage.text;
+  return `${aiResponse} ${randomFollowUp} ${randomText}`;
+}
+
+// **Обработка команды /start**
+bot.onText(/\/start/, async (msg) => {
+  const chatId = msg.chat.id;
+  logger.info(`Получена команда /start от chatId: ${chatId}`);
+
+  // Сбрасываем данные пользователя
+  userHistories[chatId] = [];
+  userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
+  userStages[chatId] = 0; // Устанавливаем начальный этап
+
+  const firstName = msg.from.first_name || 'пользователь';
+  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для пробных уроков, мне нужно задать пару вопросов.\n\nРасскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
+
+  logger.info(`Отправка приветственного сообщения для chatId: ${chatId}`);
+  await sendTypingMessage(chatId, welcomeMessage);
+});
+
 // **Обработка текстовых сообщений**
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
@@ -244,7 +196,7 @@ bot.on('message', async (msg) => {
   try {
     // Проверка текущего этапа диалога
     if (userStages[chatId] === undefined) {
-      userStages[chatId] = 0; // Устанавливаем начальный этап
+      userStages[chatId] = 0; // Устанавливаем начальн��й этап
     }
 
     const currentStage = dialogStages.questions[userStages[chatId]];
@@ -268,8 +220,7 @@ bot.on('message', async (msg) => {
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
-      const nextQuestion = nextStage.stage === "Темы" ? nextStage.text(userHistories[chatId][1].response) : nextStage.text;
-      const nextQuestionWithEmotion = getNextQuestionWithEmotion({ text: nextQuestion }, currentStage.followUp, userMessage);
+      const nextQuestionWithEmotion = await getNextQuestionWithEmotion(nextStage, currentStage.followUp, userMessage, chatId);
       logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
       await sendTypingMessage(chatId, nextQuestionWithEmotion);
     } else {
