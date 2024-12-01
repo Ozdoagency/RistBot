@@ -5,6 +5,12 @@ import winston from 'winston';
 import axios from 'axios';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+import basePrompt from './prompts/basePrompt.js';
+import dialogStages from './prompts/dialogStages.js';
+import generalQuestions from './prompts/generalQuestions.js';
+import objectionHandling from './prompts/objectHandling.js';
+import pricing from './prompts/pricing.js';
+
 // Конфигурация (можно вынести в отдельный файл config.json)
 const config = {
   TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || 'Ваш_Telegram_Token',
@@ -41,6 +47,7 @@ bot.setWebHook(`${config.WEBHOOK_URL}/bot${config.TELEGRAM_TOKEN}`);
 // История сообщений для каждого пользователя
 const userHistories = {};
 const userRequestTimestamps = {};
+let userStages = {}; // Хранение текущего этапа для каждого пользователя
 
 // Функция для отправки запроса в GEMINI API с обработкой ошибок и ограничением запросов
 async function sendToGemini(prompt, chatId) {
@@ -93,27 +100,60 @@ async function sendMessage(chatId, text) {
 
 
 // Обработка команды /start
-bot.onText(/\/start/, (msg) => {
+bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
+  userStages[chatId] = 0; // Устанавливаем первый этап диалога
+
   const firstName = msg.from.first_name || 'пользователь';
-  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас! ` +
-    'Чтобы записать вашего ребёнка на пробные уроки, мне нужно задать пару вопросов. ' +
-    'Какую цель вы хотите достичь с помощью наших занятий? например, Заполнить пробелы, подтянуть оценки, подготовиться к экзаменам? 🎯';
+  const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас!`;
+
   logger.info(`Обработка команды /start для chatId: ${chatId}`);
-  bot.sendMessage(chatId, welcomeMessage);
+  await sendMessage(chatId, welcomeMessage);
+
+  // Начинаем первый этап диалога
+  const firstStage = dialogStages.questions[userStages[chatId]];
+  await sendMessage(chatId, firstStage.text);
 });
+
 
 // Обработка текстовых сообщений
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
+
+  // Игнорируем команды
   if (userMessage.startsWith('/')) return;
 
   try {
-    const botReply = await sendToGemini(userMessage, chatId);
-    await sendMessage(chatId, botReply);
+    // Если это первый шаг, начинаем с приветствия
+    if (!userStages[chatId]) {
+      userStages[chatId] = 0;
+      const currentStage = dialogStages.questions[userStages[chatId]];
+      await sendMessage(chatId, currentStage.text);
+      return;
+    }
+
+    // Получаем текущий этап
+    const currentStage = dialogStages.questions[userStages[chatId]];
+
+    // Проверка валидации, если она задана
+    if (currentStage.validation && !currentStage.validation(userMessage)) {
+      await sendMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
+      return;
+    }
+
+    // Перейти к следующему этапу
+    userStages[chatId]++;
+    if (userStages[chatId] < dialogStages.questions.length) {
+      const nextStage = dialogStages.questions[userStages[chatId]];
+      await sendMessage(chatId, nextStage.text);
+    } else {
+      // Завершение диалога
+      await sendMessage(chatId, dialogStages.questions[dialogStages.questions.length - 1].text);
+      delete userStages[chatId]; // Сброс состояния
+    }
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
     await sendMessage(chatId, `Произошла ошибка: ${error.message}`);
