@@ -16,7 +16,7 @@ const config = {
   ADMIN_ID: process.env.ADMIN_ID || null,
   REQUEST_LIMIT: 5,
   REQUEST_WINDOW: 60000,
-  PORT: process.env.PORT || 3000,
+  PORT: process.env.PORT || 10000, // Изменен порт на 10000
   GROUP_CHAT_ID: '-4522204925',
   BOT_TOKEN: '2111920825:AAGVeO134IP43jQdU9GNQRJw0gUcJPocqaU',
 };
