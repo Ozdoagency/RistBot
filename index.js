@@ -119,15 +119,30 @@ async function sendMessage(chatId, text) {
   }
 }
 
+// **Функция проверки негативных слов**
+function containsNegativeWords(text) {
+  const negativeWords = ["ухудшились", "проблемы", "пробелы", "трудности", "сложности"];
+  return negativeWords.some(word => text.toLowerCase().includes(word));
+}
+
 // **Функция генерации следующего вопроса с эмоциональным присоединением**
-function getNextQuestionWithEmotion(stage, followUp) {
-  const emotions = [
+function getNextQuestionWithEmotion(stage, followUp, userMessage) {
+  const positiveEmotions = [
     "Отлично! 😊",
     "Понял вас! 👍",
-    "Замечательно! 🌟",
+    "Замечател��но! 🌟",
     "Хорошо! 👌",
     "Прекрасно! 😃"
   ];
+  const neutralEmotions = [
+    "Понял вас.",
+    "Спасибо за информацию.",
+    "Хорошо, продолжим.",
+    "Понял, спасибо.",
+    "Спасибо за ответ."
+  ];
+
+  const emotions = containsNegativeWords(userMessage) ? neutralEmotions : positiveEmotions;
   const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
   const randomFollowUp = followUp[Math.floor(Math.random() * followUp.length)];
   const randomText = Array.isArray(stage.text) ? stage.text[Math.floor(Math.random() * stage.text.length)] : stage.text;
@@ -142,7 +157,7 @@ bot.onText(/\/start/, async (msg) => {
   // Сбрасываем данные пользователя
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
-  userStages[chatId] = 0; // Устанавливаем начальный этап
+  userStages[chatId] = 0; // Устанавливаем началь��ый этап
 
   const firstName = msg.from.first_name || 'пользователь';
   const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас!`;
@@ -204,7 +219,7 @@ bot.on('message', async (msg) => {
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
       const nextQuestion = nextStage.stage === "Темы" ? nextStage.text(userHistories[chatId][1].response) : nextStage.text;
-      const nextQuestionWithEmotion = getNextQuestionWithEmotion({ text: nextQuestion }, currentStage.followUp);
+      const nextQuestionWithEmotion = getNextQuestionWithEmotion({ text: nextQuestion }, currentStage.followUp, userMessage);
       logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
       await sendTypingMessage(chatId, nextQuestionWithEmotion);
     } else {
@@ -214,7 +229,7 @@ bot.on('message', async (msg) => {
       await sendTypingMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
 
       // Сообщение о подтверждении времени
-      await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пару минут, ожидайте пожалуйста 😊");
+      await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пар�� минут, ожидайте пожалуйста 😊");
 
       // Отправка собранных данных в группу
       await sendCollectedDataToGroup(chatId);
