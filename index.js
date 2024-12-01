@@ -3,8 +3,8 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import winston from 'winston';
 import axios from 'axios';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // Инициализация GoogleGenerativeAI
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
