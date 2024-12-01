@@ -9,7 +9,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import basePrompt from './prompts/basePrompt.js';
 import dialogStages from './prompts/dialogStages.js';
 import generalQuestions from './prompts/generalQuestions.js';
-import objectionHandling from './prompts/objectHandling.js';
+import objectionHandling from './prompts/objectionHandling.js';
 import pricing from './prompts/pricing.js';
 
 // Конфигурация
