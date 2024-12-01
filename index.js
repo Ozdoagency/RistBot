@@ -28,6 +28,9 @@ const config = {
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
+// Инициализация Telegram Bot
+const bot = new TelegramBot(config.TELEGRAM_TOKEN, { polling: true });
+
 // Логирование с помощью Winston
 const logger = winston.createLogger({
   level: 'info',
@@ -75,12 +78,10 @@ async function sendMessage(chatId, text) {
   const MAX_LENGTH = config.MAX_TELEGRAM_MESSAGE_LENGTH;
   const messages = [];
 
-  // Разбиваем длинный текст на части
   for (let i = 0; i < text.length; i += MAX_LENGTH) {
     messages.push(text.substring(i, i + MAX_LENGTH));
   }
 
-  // Отправляем каждую часть отдельно
   for (const message of messages) {
     await bot.sendMessage(chatId, message);
   }
@@ -120,24 +121,21 @@ bot.on('message', async (msg) => {
 
     const currentStage = dialogStages.questions[userStages[chatId]];
 
-    // Проверка валидации, если есть
     if (currentStage.validation && !currentStage.validation(userMessage)) {
       await sendMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
       return;
     }
 
-    // Генерация ответа через Gemini
     const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
     const botReply = await sendToGemini(combinedPrompt, chatId);
     await sendMessage(chatId, botReply);
 
-    // Переход к следующему этапу
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
       await sendMessage(chatId, nextStage.text);
     } else {
-      delete userStages[chatId];
+      userStages[chatId] = null; // Завершаем диалог
       await sendMessage(chatId, "Спасибо! Мы закончили диалог.");
     }
   } catch (error) {
