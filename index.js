@@ -144,11 +144,11 @@ bot.onText(/\/start/, async (msg) => {
   const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас!`;
 
   logger.info(`Отправка приветственного сообщения для chatId: ${chatId}`);
-  await sendMessage(chatId, welcomeMessage);
+  await sendTypingMessage(chatId, welcomeMessage);
 
   const firstStage = dialogStages.questions[userStages[chatId]];
   logger.info(`Отправка первого вопроса для chatId: ${chatId}`);
-  await sendMessage(chatId, firstStage.text);
+  await sendTypingMessage(chatId, firstStage.text);
 });
 
 // **Обработка текстовых сообщений**
