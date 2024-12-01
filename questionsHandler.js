@@ -7,8 +7,8 @@ export const askNextQuestion = async (chatId, userState, bot) => {
   const user = userState[chatId] || { stage: 0, data: {}, askedPhone: false };
   userState[chatId] = user;
   if (user.stage >= dialogStages.questions.length) {
-  user.stage = dialogStages.questions.length - 1;
-}
+    user.stage = dialogStages.questions.length - 1;
+  }
 
   try {
     if (!user.askedPhone && user.stage >= dialogStages.questions.length - 1) {
@@ -23,7 +23,7 @@ export const askNextQuestion = async (chatId, userState, bot) => {
       let questionText = question.text;
       
       if (question.isTemplate) {
-        // Адаптируем текст под контекст, если это шаблон
+        // Адаптируем текст под контекст, если это шабло��
         const contextualText = await adaptTextToContext(
           questionText,
           user.data,
@@ -42,7 +42,7 @@ export const askNextQuestion = async (chatId, userState, bot) => {
       // Все вопросы завершены
       const summary = {
         goal: user.data.goal || "Не указано",
-        grade: user.data.grade || "Не указа��о",
+        grade: user.data.grade || "Не указано",
         knowledge: user.data.knowledge || "Не указано",
         date: user.data.date || "Не указано",
         phone: user.data.phone || "Не указано",

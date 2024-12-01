@@ -5,6 +5,8 @@ import bodyParser from 'body-parser';
 import winston from 'winston';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dialogStages from './prompts.js';
+import { askNextQuestion } from './questionsHandler.js';
+import { connectToMongoDB } from './mongodb.js';
 
 // Конфигурация
 const config = {
@@ -48,6 +50,9 @@ const logger = winston.createLogger({
 const userHistories = {};
 const userRequestTimestamps = {};
 let userStages = {}; // Хранение текущего этапа для каждого пользователя
+
+// Подключение к MongoDB
+connectToMongoDB();
 
 // **Функция sendToGemini**
 async function sendToGemini(prompt, chatId) {
@@ -168,7 +173,7 @@ bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   logger.info(`Получена команда /start от chatId: ${chatId}`);
 
-  // Сбрасываем данные пользователя
+  // Сбрасываем данные п��льзователя
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
   userStages[chatId] = 0; // Устанавливаем начальный этап
@@ -201,29 +206,9 @@ bot.on('message', async (msg) => {
     userHistories[chatId] = userHistories[chatId] || [];
     userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
 
-    // Эмоциональное присоединение
-    const emotionResponse = await getNextQuestionWithEmotion(currentStage, userMessage, chatId);
-    await sendTypingMessage(chatId, emotionResponse);
-
     // Переход к следующему этапу
     userStages[chatId]++;
-    if (userStages[chatId] < dialogStages.questions.length) {
-      const nextStage = dialogStages.questions[userStages[chatId]];
-      const nextQuestion = Array.isArray(nextStage.text) ? nextStage.text[Math.floor(Math.random() * nextStage.text.length)] : nextStage.text;
-      logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
-      await sendTypingMessage(chatId, nextQuestion);
-    } else {
-      // Завершение диалога
-      delete userStages[chatId];
-      logger.info(`Завершение диалога для chatId: ${chatId}`);
-      await sendTypingMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
-
-      // Сообщение о подтверждении времени
-      await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пару минут, ожидайте пожалуйста 😊");
-
-      // Отправка собранных данных в группу
-      await sendCollectedDataToGroup(chatId);
-    }
+    await askNextQuestion(chatId, userStages, bot);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
     await sendTypingMessage(chatId, `Произошла ошибка: ${error.message}`);
