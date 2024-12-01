@@ -178,6 +178,17 @@ bot.onText(/\/start/, async (msg) => {
   logger.info(`Отправка приветственного сообщения для chatId: ${chatId}`);
   await sendTypingMessage(chatId, welcomeMessage);
 
+  // Генерация промпта для приветствия
+  const prompt = generatePrompt(welcomeMessage, chatId);
+  const aiResponse = await sendToGemini(prompt, chatId);
+
+  // Сохранение истории диалога
+  userHistories[chatId].push({ response: welcomeMessage, reply: aiResponse });
+
+  // Отправка ответа от Gemini API пользователю
+  await sendTypingMessage(chatId, aiResponse);
+
+  // Отправка первого вопроса
   const firstStage = dialogStages.questions[userStages[chatId]];
   logger.info(`Отправка первого вопроса для chatId: ${chatId}`);
   await sendTypingMessage(chatId, firstStage.text);
@@ -255,6 +266,24 @@ bot.on('message', async (msg) => {
 
     // Переход к следующему этапу
     userStages[chatId]++;
+    if (userStages[chatId] < dialogStages.questions.length) {
+      const nextStage = dialogStages.questions[userStages[chatId]];
+      const nextQuestion = nextStage.stage === "Темы" ? nextStage.text(userHistories[chatId][1].response) : nextStage.text;
+      const nextQuestionWithEmotion = getNextQuestionWithEmotion({ text: nextQuestion }, currentStage.followUp, userMessage);
+      logger.info(`Отправка следующего вопроса для chatId: ${chatId}`);
+      await sendTypingMessage(chatId, nextQuestionWithEmotion);
+    } else {
+      // Завершение диалога
+      delete userStages[chatId];
+      logger.info(`Завершение диалога для chatId: ${chatId}`);
+      await sendTypingMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
+
+      // Сообщение о подтверждении времени
+      await sendTypingMessage(chatId, "Сейчас уточню доступное время у администратора и подтвержу выбранное время. Это займет пару минут, ожидайте пожалуйста 😊");
+
+      // Отправка собранных данных в группу
+      await sendCollectedDataToGroup(chatId);
+    }
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
     await sendTypingMessage(chatId, `Произошла ошибка: ${error.message}`);
