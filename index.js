@@ -95,19 +95,19 @@ bot.onText(/\/start/, async (msg) => {
   // Сбрасываем данные пользователя
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
-  userStages[chatId] = 0; // Устанавливаем первый этап диалога
+  userStages[chatId] = 1; // Устанавливаем этап на "Класс" (пропускаем "Приветствие")
 
   const firstName = msg.from.first_name || 'пользователь';
   const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас!`;
 
   logger.info(`Обработка команды /start для chatId: ${chatId}`);
-
-  // Отправляем приветствие и первый этап диалога
   await sendMessage(chatId, welcomeMessage);
 
+  // Начинаем со следующего этапа после приветствия
   const firstStage = dialogStages.questions[userStages[chatId]];
-  await sendMessage(chatId, firstStage.text); // Отправляем только первый вопрос
+  await sendMessage(chatId, firstStage.text);
 });
+
 
 
 // **Обработка текстовых сообщений**
