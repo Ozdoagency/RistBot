@@ -24,6 +24,22 @@ const sendNotificationToGroup = async (bot, summary) => {
   }
 };
 
+const generateEmotionalJoinText = (context) => {
+  const responses = [
+    "Отлично! 😊",
+    "Здорово! 👍",
+    "Понял вас! 👌",
+    "Спасибо за ответ! 🌟",
+  ];
+  // Здесь можно добавить логику для генерации текста на основе контекста
+  return responses[Math.floor(Math.random() * responses.length)];
+};
+
+const sendEmotionalJoinText = async (bot, chatId, context) => {
+  const joinText = generateEmotionalJoinText(context);
+  await sendMessageWithCheck(bot, chatId, joinText);
+};
+
 export const askNextQuestion = async (chatId, userState, bot, userMessage) => {
   try {
     // Получаем или создаем состояние пользователя
@@ -70,6 +86,9 @@ export const askNextQuestion = async (chatId, userState, bot, userMessage) => {
     if (currentStage && currentStage.joinText) {
       await sendMessageWithCheck(bot, chatId, currentStage.joinText);
     }
+
+    // Отправляем эмоциональное присоединение
+    await sendEmotionalJoinText(bot, chatId, userMessage);
 
     // Переходим к следующему этапу
     user.stage++;
