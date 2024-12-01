@@ -50,8 +50,12 @@ async function sendToGemini(prompt, chatId) {
     // Генерация контента через Gemini API
     const result = await model.generateContent(prompt);
 
-    // Получение текста из ответа
-    const reply = result.response.text || 'Извините, я не смог обработать ваш запрос.';
+    // Извлечение текста из первого кандидата
+    const candidates = result.response.candidates;
+    const reply = candidates && candidates.length > 0 
+      ? candidates[0].text 
+      : 'Извините, я не смог обработать ваш запрос.';
+      
     logger.info(`Ответ от Gemini API для chatId ${chatId}: "${reply}"`);
     return reply;
   } catch (error) {
@@ -62,6 +66,7 @@ async function sendToGemini(prompt, chatId) {
     throw new Error(`Произошла ошибка при обработке запроса: ${error.message}`);
   }
 }
+
 
 
 
