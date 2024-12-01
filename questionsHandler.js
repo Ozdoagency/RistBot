@@ -6,6 +6,9 @@ import logger from './logger.js';
 export const askNextQuestion = async (chatId, userState, bot) => {
   const user = userState[chatId] || { stage: 0, data: {}, askedPhone: false };
   userState[chatId] = user;
+  if (!user.data) {
+    user.data = {}; // Инициализация данных пользователя
+  }
   if (user.stage >= dialogStages.questions.length) {
     user.stage = dialogStages.questions.length - 1;
   }
