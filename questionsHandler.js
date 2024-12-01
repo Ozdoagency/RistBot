@@ -3,6 +3,27 @@ import { sendSummaryToSecondBot } from './summaryHandler.js';
 import { sendMessageWithCheck } from './messageUtils.js';
 import logger from './logger.js';
 
+// Добавляем новую функцию для отправки в группу
+const sendNotificationToGroup = async (bot, summary) => {
+  try {
+    const GROUP_CHAT_ID = '-4522204925'; // Используем ID напрямую
+    
+    const groupMessage = `🎯 Новая заявка!\n\n` +
+      `Цель: ${summary.goal}\n` +
+      `Класс: ${summary.grade}\n` +
+      `Темы: ${summary.knowledge}\n` +
+      `Время: ${summary.date}\n` +
+      `Телефон: ${summary.phone}`;
+
+    const result = await bot.sendMessage(GROUP_CHAT_ID, groupMessage);
+    logger.info(`Уведомление успешно отправлено в групповой чат: ${GROUP_CHAT_ID}`);
+    return result;
+  } catch (error) {
+    logger.error(`Ошибка отправки в групповой чат: ${error.message}`);
+    throw error;
+  }
+};
+
 export const askNextQuestion = async (chatId, userState, bot, userMessage) => {
   try {
     // Получаем или создаем состояние пользователя
@@ -65,24 +86,17 @@ export const askNextQuestion = async (chatId, userState, bot, userMessage) => {
       const summary = {
         goal: user.data.goal || "Не указано",
         grade: user.data.grade || "Не указано",
-        knowledge: user.data.knowledge || "Не ук��зано",
+        knowledge: user.data.knowledge || "Не указано",
         date: user.data.date || "Не указано",
         phone: user.data.phone || "Не указано"
       };
 
-      // Отправляем сообщение в группу
-      const groupMessage = `🎯 Новая заявка!\n\n` +
-        `Цель: ${summary.goal}\n` +
-        `Класс: ${summary.grade}\n` +
-        `Темы: ${summary.knowledge}\n` +
-        `Время: ${summary.date}\n` +
-        `Телефон: ${summary.phone}`;
-
+      // Отправляем уведомление в группу с обработкой ошибок
       try {
-        await bot.sendMessage(process.env.GROUP_CHAT_ID, groupMessage);
-        logger.info(`Уведомление отправлено в групповой чат`);
-      } catch (error) {
-        logger.error(`Ошибка отправки в групповой чат: ${error.message}`);
+        await sendNotificationToGroup(bot, summary);
+      } catch (notificationError) {
+        logger.error(`Не удалось отправить уведомление в группу: ${notificationError.message}`);
+        // Продолжаем выполнение, даже если отправка в группу не удалась
       }
 
       await sendSummaryToSecondBot(bot, summary);
