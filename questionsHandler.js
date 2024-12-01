@@ -2,6 +2,7 @@ import dialogStages from './prompts.js';
 import { sendSummaryToSecondBot } from './summaryHandler.js';
 import { sendMessageWithCheck } from './messageUtils.js';
 import logger from './logger.js';
+import { generateTextWithAI } from './aiUtils.js'; // Импортируем функцию для генерации текста с помощью ИИ
 
 // Добавляем новую функцию для отправки в группу
 const sendNotificationToGroup = async (bot, summary) => {
@@ -24,19 +25,14 @@ const sendNotificationToGroup = async (bot, summary) => {
   }
 };
 
-const generateEmotionalJoinText = (context) => {
-  const responses = [
-    "Отлично! 😊",
-    "Здорово! 👍",
-    "Понял вас! 👌",
-    "Спасибо за ответ! 🌟",
-  ];
-  // Здесь можно добавить логику для генерации текста на основе контекста
-  return responses[Math.floor(Math.random() * responses.length)];
+const generateEmotionalJoinText = async (context) => {
+  const prompt = `Пользователь: ${context}\нИИ:`;
+  const response = await generateTextWithAI(prompt);
+  return response;
 };
 
 const sendEmotionalJoinText = async (bot, chatId, context) => {
-  const joinText = generateEmotionalJoinText(context);
+  const joinText = await generateEmotionalJoinText(context);
   await sendMessageWithCheck(bot, chatId, joinText);
 };
 
@@ -87,7 +83,7 @@ export const askNextQuestion = async (chatId, userState, bot, userMessage) => {
       await sendMessageWithCheck(bot, chatId, currentStage.joinText);
     }
 
-    // Отправляем эмоциональное присоединение
+    // Отправля��м эмоциональное присоединение
     await sendEmotionalJoinText(bot, chatId, userMessage);
 
     // Переходим к следующему этапу
