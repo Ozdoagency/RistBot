@@ -117,6 +117,19 @@ async function sendMessage(chatId, text) {
   }
 }
 
+// **Функция генерации следующего вопроса с эмоциональным присоединением**
+function getNextQuestionWithEmotion(stage) {
+  const emotions = [
+    "Отлично! 😊",
+    "Понял вас! 👍",
+    "Замечательно! 🌟",
+    "Хорошо! 👌",
+    "Прекрасно! 😃"
+  ];
+  const randomEmotion = emotions[Math.floor(Math.random() * emotions.length)];
+  return `${randomEmotion} ${stage.text}`;
+}
+
 // **Обработка команды /start**
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
@@ -163,7 +176,8 @@ bot.on('message', async (msg) => {
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
-      await sendTypingMessage(chatId, nextStage.text);
+      const nextQuestion = getNextQuestionWithEmotion(nextStage);
+      await sendTypingMessage(chatId, nextQuestion);
     } else {
       // Завершение диалога
       delete userStages[chatId];
