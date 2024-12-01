@@ -23,7 +23,7 @@ export const askNextQuestion = async (chatId, userState, bot) => {
       let questionText = question.text;
       
       if (question.isTemplate) {
-        // Адаптируем текст под контекст, если это шабло��
+        // Адаптируем текст под контекст, если это шаблон
         const contextualText = await adaptTextToContext(
           questionText,
           user.data,
@@ -43,7 +43,7 @@ export const askNextQuestion = async (chatId, userState, bot) => {
       const summary = {
         goal: user.data.goal || "Не указано",
         grade: user.data.grade || "Не указано",
-        knowledge: user.data.knowledge || "Не указано",
+        knowledge: user.data.knowledge || "Не ��казано",
         date: user.data.date || "Не указано",
         phone: user.data.phone || "Не указано",
       };
