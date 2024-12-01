@@ -50,14 +50,15 @@ async function sendToGemini(prompt, chatId) {
     // Генерация контента через Gemini API
     const result = await model.generateContent(prompt);
 
-    // Извлечение текста из первого кандидата
-    const candidates = result.response.candidates;
-    const reply = candidates && candidates.length > 0 
-      ? candidates[0].text 
-      : 'Извините, я не смог обработать ваш запрос.';
-      
-    logger.info(`Ответ от Gemini API для chatId ${chatId}: "${reply}"`);
-    return reply;
+    // Проверка наличия кандидатов в ответе
+    if (result.response && result.response.candidates && result.response.candidates.length > 0) {
+      const reply = result.response.candidates[0].text || 'Ответ отсутствует.';
+      logger.info(`Ответ от Gemini API для chatId ${chatId}: "${reply}"`);
+      return reply;
+    } else {
+      logger.warn(`Gemini API не вернул кандидатов для chatId ${chatId}.`);
+      return 'Извините, я не смог обработать ваш запрос. Gemini API не вернул текст.';
+    }
   } catch (error) {
     logger.error(`Ошибка Gemini API для chatId ${chatId}: ${error.message}`);
     if (config.ADMIN_ID) {
@@ -66,10 +67,6 @@ async function sendToGemini(prompt, chatId) {
     throw new Error(`Произошла ошибка при обработке запроса: ${error.message}`);
   }
 }
-
-
-
-
 
 // Отправка сообщения в Telegram с проверкой длины
 async function sendMessage(chatId, text) {
@@ -89,7 +86,7 @@ bot.onText(/\/start/, (msg) => {
   const firstName = msg.from.first_name || 'пользователь';
   const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас! ` +
     'Чтобы записать вашего ребёнка на пробные уроки, мне нужно задать пару вопросов. ' +
-    'Какую цель вы хотите достичь с помощью наших занятий? 🎯';
+    'Какую цель вы хотите достичь с помощью наших занятий? например, Заполнить пробелы, подтянуть оценки, подготовиться к экзаменам? 🎯';
   logger.info(`Обработка команды /start для chatId: ${chatId}`);
   bot.sendMessage(chatId, welcomeMessage);
 });
