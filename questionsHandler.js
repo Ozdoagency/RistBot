@@ -43,7 +43,7 @@ export const askNextQuestion = async (chatId, userState, bot) => {
       const summary = {
         goal: user.data.goal || "Не указано",
         grade: user.data.grade || "Не указано",
-        knowledge: user.data.knowledge || "Не ��казано",
+        knowledge: user.data.knowledge || "Не указано",
         date: user.data.date || "Не указано",
         phone: user.data.phone || "Не указано",
       };
