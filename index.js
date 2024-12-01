@@ -7,11 +7,10 @@ import axios from 'axios';
 
 // Конфигурация (можно вынести в отдельный файл config.json)
 const config = {
-  TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || '7522443699:AAEMCjrIaERF6Z-QPqKJZPmwfuHCT0RKVR4',
-  WEBHOOK_URL: process.env.WEBHOOK_URL || 'https://ristbot.onrender.com',
-  GEMINI_API_KEY: process.env.GEMINI_API_KEY || 'AIzaSyBm-r1xP_FWnhWpUDuODUbIzTlE2v964-8',
-  GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/', // Убедитесь, что это правильный URL
-}
+  TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || 'Ваш_Telegram_Token',
+  WEBHOOK_URL: process.env.WEBHOOK_URL || 'Ваш_Webhook_Url',
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || 'Ваш_Gemini_API_Key',
+  GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/', // URL Gemini API
   MAX_TELEGRAM_MESSAGE_LENGTH: 4096,
   ADMIN_ID: process.env.ADMIN_ID || null,
   REQUEST_LIMIT: 5,
