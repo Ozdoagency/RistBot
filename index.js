@@ -112,7 +112,7 @@ async function sendMessage(chatId, text) {
   const MAX_LENGTH = config.MAX_TELEGRAM_MESSAGE_LENGTH;
   const messages = [];
 
-  for (let i = 0; i < text.length; i += MAX_LENGTH) {
+  for (let i = 0; text.length; i += MAX_LENGTH) {
     messages.push(text.substring(i, i + MAX_LENGTH));
   }
 
@@ -150,7 +150,7 @@ async function handleLongResponse(chatId, response) {
   const MAX_LENGTH = config.MAX_TELEGRAM_MESSAGE_LENGTH;
   const messages = [];
 
-  for (let i = 0; i < response.length; i += MAX_LENGTH) {
+  for (let i = 0; response.length; i += MAX_LENGTH) {
     messages.push(response.substring(i, i + MAX_LENGTH));
   }
 
@@ -173,10 +173,21 @@ bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   logger.info(`Получена команда /start от chatId: ${chatId}`);
 
-  // Сбрасываем данные пользователя
+  // Инициализация данных пользователя
+  userStages[chatId] = {
+    stage: 0,
+    data: {
+      goal: null,
+      grade: null,
+      knowledge: null,
+      date: null,
+      phone: null
+    },
+    askedPhone: false
+  };
+  
   userHistories[chatId] = [];
-  userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
-  userStages[chatId] = 0; // Устанавливаем начальный этап
+  userRequestTimestamps[chatId] = { count: 0, timestamp: Date.now() };
 
   const firstName = msg.from.first_name || 'пользователь';
   const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для бесплатных пробных уроков, мне нужно задать пару вопросов.\n\nРасскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
@@ -189,29 +200,47 @@ bot.onText(/\/start/, async (msg) => {
 bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
-  logger.info(`Получено сообщение от chatId: ${chatId}, текст: ${userMessage}`);
-
-  // Игнорируем команды
-  if (userMessage.startsWith('/')) return;
-
+  
   try {
-    // Проверка текущего этапа диалога
-    if (!userStages[chatId] || typeof userStages[chatId] !== 'object') {
-      userStages[chatId] = { stage: 0, data: {}, askedPhone: false }; // Устанавливаем начальный этап и инициализируем данные
+    // Игнорируем команды и пустые сообщения
+    if (!userMessage || userMessage.startsWith('/')) return;
+
+    logger.info(`Получено сообщение от chatId: ${chatId}, текст: ${userMessage}`);
+
+    // Проверка и инициализация состояния пользователя
+    if (!userStages[chatId]) {
+      userStages[chatId] = {
+        stage: 0,
+        data: {
+          goal: null,
+          grade: null,
+          knowledge: null,
+          date: null,
+          phone: null
+        },
+        askedPhone: false
+      };
     }
 
     const currentStage = dialogStages.questions[userStages[chatId].stage];
+    if (!currentStage) {
+      logger.warn(`Неверный этап диалога для chatId ${chatId}`);
+      return;
+    }
 
-    // Сохранение истории диалога
+    // Сохранение ответа пользователя
     userHistories[chatId] = userHistories[chatId] || [];
-    userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
+    userHistories[chatId].push({
+      stage: currentStage.stage,
+      response: userMessage,
+      timestamp: Date.now()
+    });
 
-    // Переход к следующему этапу
-    userStages[chatId].stage++;
+    // Обработка следующего этапа
     await askNextQuestion(chatId, userStages, bot);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
-    await sendTypingMessage(chatId, `Произошла ошибка: ${error.message}`);
+    await sendTypingMessage(chatId, "Извините, произошла ошибка. Пожалуйста, попробуйте еще раз или начните сначала с команды /start");
   }
 });
 
