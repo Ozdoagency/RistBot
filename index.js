@@ -138,16 +138,35 @@ bot.on('message', async (msg) => {
     // Получаем текущий этап
     const currentStage = dialogStages.questions[userStages[chatId]];
 
+    // Проверяем, если пользователь спрашивает про цены
+    if (userMessage.toLowerCase().includes("цена") || userMessage.toLowerCase().includes("стоимость")) {
+      const pricingPrompt = pricing.question;
+      await sendMessage(chatId, pricingPrompt);
+      return;
+    }
+
+    // Проверяем, если пользователь выражает сомнения (обработка возражений)
+    if (userMessage.toLowerCase().includes("дорого") || userMessage.toLowerCase().includes("нет времени")) {
+      const objectionReply = objectionHandling.noTime;
+      await sendMessage(chatId, objectionReply);
+      return;
+    }
+
     // Проверка валидации, если она задана
     if (currentStage.validation && !currentStage.validation(userMessage)) {
       await sendMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
       return;
     }
 
-    // Перейти к следующему этапу
+    // Формируем следующий промпт
+    const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
+    const botReply = await sendToGemini(combinedPrompt, chatId);
+
+    // Переход к следующему этапу
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
+      await sendMessage(chatId, botReply);
       await sendMessage(chatId, nextStage.text);
     } else {
       // Завершение диалога
