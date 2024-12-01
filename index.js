@@ -110,17 +110,19 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const userMessage = msg.text;
 
-  // Игнорируем команды
-  if (userMessage.startsWith('/')) return;
+  // Игнорируем команды (кроме /start, которая уже обрабатывается отдельно)
+  if (userMessage.startsWith('/') && userMessage !== '/start') return;
 
   try {
-    if (userStages[chatId] === undefined) {
-      userStages[chatId] = 0; // Устанавливаем начальный этап
+    // Если этап диалога не установлен (новый пользователь), инициализируем
+    if (!userStages[chatId]) {
+      userStages[chatId] = 0; // Устанавливаем первый этап
     }
 
+    // Получаем текущий этап
     const currentStage = dialogStages.questions[userStages[chatId]];
 
-    // Проверка валидации (если есть)
+    // Проверка валидации (если требуется)
     if (currentStage.validation && !currentStage.validation(userMessage)) {
       await sendMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
       return;
@@ -130,10 +132,12 @@ bot.on('message', async (msg) => {
     userHistories[chatId] = userHistories[chatId] || [];
     userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
 
-    // Генерация ответа через Gemini
-    const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
-    const botReply = await sendToGemini(combinedPrompt, chatId);
-    await sendMessage(chatId, botReply);
+    // Генерация ответа через Gemini API (если это необходимо)
+    if (currentStage.stage !== "Приветствие") { // Исключаем автоматическое приветствие из генерации
+      const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
+      const botReply = await sendToGemini(combinedPrompt, chatId);
+      await sendMessage(chatId, botReply);
+    }
 
     // Переход к следующему этапу
     userStages[chatId]++;
@@ -141,6 +145,7 @@ bot.on('message', async (msg) => {
       const nextStage = dialogStages.questions[userStages[chatId]];
       await sendMessage(chatId, nextStage.text);
     } else {
+      // Завершение диалога
       delete userStages[chatId];
       await sendMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
     }
