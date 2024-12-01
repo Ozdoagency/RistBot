@@ -57,13 +57,13 @@ logger.info(`Полный ответ от Gemini API для chatId ${chatId}: ${
 
     // Проверка наличия кандидатов в ответе
     if (result.response && result.response.candidates && result.response.candidates.length > 0) {
-      const reply = result.response.candidates[0].text || 'Ответ отсутствует.';
+      const reply = result.response.candidates[0].content.parts[0].text || 'Ответ отсутствует.';
       logger.info(`Ответ от Gemini API для chatId ${chatId}: "${reply}"`);
       return reply;
     } else {
       logger.warn(`Gemini API не вернул кандидатов для chatId ${chatId}.`);
       return 'Извините, я не смог обработать ваш запрос. Gemini API не вернул текст.';
-    }
+    }    
   } catch (error) {
     logger.error(`Ошибка Gemini API для chatId ${chatId}: ${error.message}`);
     if (config.ADMIN_ID) {
