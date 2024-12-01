@@ -112,7 +112,7 @@ async function sendMessage(chatId, text) {
   const MAX_LENGTH = config.MAX_TELEGRAM_MESSAGE_LENGTH;
   const messages = [];
 
-  for (let i = 0; text.length; i += MAX_LENGTH) {
+  for (let i = 0; i < text.length; i += MAX_LENGTH) { // Исправлен цикл
     messages.push(text.substring(i, i + MAX_LENGTH));
   }
 
@@ -150,7 +150,7 @@ async function handleLongResponse(chatId, response) {
   const MAX_LENGTH = config.MAX_TELEGRAM_MESSAGE_LENGTH;
   const messages = [];
 
-  for (let i = 0; response.length; i += MAX_LENGTH) {
+  for (let i = 0; i < response.length; i += MAX_LENGTH) { // Исправлен цикл
     messages.push(response.substring(i, i + MAX_LENGTH));
   }
 
@@ -237,7 +237,7 @@ bot.on('message', async (msg) => {
     });
 
     // Обработка следующего этапа
-    await askNextQuestion(chatId, userStages, bot);
+    await askNextQuestion(chatId, userStages, bot, userMessage);
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
     await sendTypingMessage(chatId, "Извините, произошла ошибка. Пожалуйста, попробуйте еще раз или начните сначала с команды /start");
