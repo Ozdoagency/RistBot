@@ -5,11 +5,6 @@ import winston from 'winston';
 import axios from 'axios';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-
-// Инициализация GoogleGenerativeAI
-const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
 // Конфигурация (можно вынести в отдельный файл config.json)
 const config = {
   TELEGRAM_TOKEN: process.env.TELEGRAM_TOKEN || 'Ваш_Telegram_Token',
@@ -21,6 +16,10 @@ const config = {
   REQUEST_LIMIT: 5,
   REQUEST_WINDOW: 60000,
 };
+
+// Инициализация GoogleGenerativeAI
+const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // Настройка Winston для логирования
 const logger = winston.createLogger({
