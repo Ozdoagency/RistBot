@@ -48,7 +48,12 @@ async function sendToGemini(prompt, chatId) {
     logger.info(`Отправка запроса к Gemini API от chatId ${chatId}: "${prompt}"`);
 
     // Генерация контента через Gemini API
-    const result = await model.generateContent(prompt);
+    const basePrompt = "Вы профессиональный репетитор. Отвечайте кратко и чётко.";
+const combinedPrompt = `${basePrompt}\nПользователь: ${prompt}`;
+const result = await model.generateContent(combinedPrompt);
+
+    // Логируем весь ответ от Gemini API
+logger.info(`Полный ответ от Gemini API для chatId ${chatId}: ${JSON.stringify(result)}`);
 
     // Проверка наличия кандидатов в ответе
     if (result.response && result.response.candidates && result.response.candidates.length > 0) {
@@ -71,12 +76,21 @@ async function sendToGemini(prompt, chatId) {
 // Отправка сообщения в Telegram с проверкой длины
 async function sendMessage(chatId, text) {
   if (!text || text.trim() === '') return;
-  const trimmedText =
-    text.length > config.MAX_TELEGRAM_MESSAGE_LENGTH
-      ? `${text.substring(0, config.MAX_TELEGRAM_MESSAGE_LENGTH - 3)}...`
-      : text;
-  return bot.sendMessage(chatId, trimmedText);
+
+  const MAX_LENGTH = config.MAX_TELEGRAM_MESSAGE_LENGTH;
+  const messages = [];
+
+  // Разбиваем длинный текст на части
+  for (let i = 0; i < text.length; i += MAX_LENGTH) {
+    messages.push(text.substring(i, i + MAX_LENGTH));
+  }
+
+  // Отправляем каждую часть отдельно
+  for (const message of messages) {
+    await bot.sendMessage(chatId, message);
+  }
 }
+
 
 // Обработка команды /start
 bot.onText(/\/start/, (msg) => {
