@@ -20,14 +20,29 @@ export const askNextQuestion = async (chatId, userState, bot) => {
     } else if (user.stage < dialogStages.questions.length - 1) {
       // Задаём остальные вопросы
       const question = dialogStages.questions[user.stage];
-      await sendMessageWithCheck(bot, chatId, question.text);
+      let questionText = question.text;
+      
+      if (question.isTemplate) {
+        // Адаптируем текст под контекст, если это шаблон
+        const contextualText = await adaptTextToContext(
+          questionText,
+          user.data,
+          question.contextRules
+        );
+        questionText = contextualText || questionText;
+      }
+      
+      if (question.joinText) {
+        await sendMessageWithCheck(bot, chatId, question.joinText);
+      }
+      await sendMessageWithCheck(bot, chatId, questionText);
       user.stage += 1; // Обновляем этап
       logger.info(`Этап обновлён для chatId ${chatId}: ${user.stage}`);
     } else {
       // Все вопросы завершены
       const summary = {
         goal: user.data.goal || "Не указано",
-        grade: user.data.grade || "Не указано",
+        grade: user.data.grade || "Не указа��о",
         knowledge: user.data.knowledge || "Не указано",
         date: user.data.date || "Не указано",
         phone: user.data.phone || "Не указано",
