@@ -91,19 +91,24 @@ async function sendMessage(chatId, text) {
 // **Обработка команды /start**
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
+
+  // Сбрасываем данные пользователя
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
-  userStages[chatId] = 0;
+  userStages[chatId] = 0; // Устанавливаем первый этап диалога
 
   const firstName = msg.from.first_name || 'пользователь';
   const welcomeMessage = `Здравствуйте, ${firstName}! 👋 Меня зовут Виктория, я представляю онлайн-школу "Rist". Мы рады, что вы выбрали нас!`;
 
   logger.info(`Обработка команды /start для chatId: ${chatId}`);
+
+  // Отправляем приветствие и первый этап диалога
   await sendMessage(chatId, welcomeMessage);
 
   const firstStage = dialogStages.questions[userStages[chatId]];
-  await sendMessage(chatId, firstStage.text);
+  await sendMessage(chatId, firstStage.text); // Отправляем только первый вопрос
 });
+
 
 // **Обработка текстовых сообщений**
 bot.on('message', async (msg) => {
@@ -111,15 +116,14 @@ bot.on('message', async (msg) => {
   const userMessage = msg.text;
 
   // Игнорируем команды (кроме /start, которая уже обрабатывается отдельно)
-  if (userMessage.startsWith('/') && userMessage !== '/start') return;
+  if (userMessage.startsWith('/')) return;
 
   try {
     // Если этап диалога не установлен (новый пользователь), инициализируем
-    if (!userStages[chatId]) {
-      userStages[chatId] = 0; // Устанавливаем первый этап
+    if (userStages[chatId] === undefined) {
+      userStages[chatId] = 0; // Устанавливаем начальный этап
     }
 
-    // Получаем текущий этап
     const currentStage = dialogStages.questions[userStages[chatId]];
 
     // Проверка валидации (если требуется)
@@ -132,12 +136,10 @@ bot.on('message', async (msg) => {
     userHistories[chatId] = userHistories[chatId] || [];
     userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
 
-    // Генерация ответа через Gemini API (если это необходимо)
-    if (currentStage.stage !== "Приветствие") { // Исключаем автоматическое приветствие из генерации
-      const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
-      const botReply = await sendToGemini(combinedPrompt, chatId);
-      await sendMessage(chatId, botReply);
-    }
+    // Генерация ответа через Gemini
+    const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
+    const botReply = await sendToGemini(combinedPrompt, chatId);
+    await sendMessage(chatId, botReply);
 
     // Переход к следующему этапу
     userStages[chatId]++;
@@ -154,6 +156,7 @@ bot.on('message', async (msg) => {
     await sendMessage(chatId, `Произошла ошибка: ${error.message}`);
   }
 });
+
 
 // **Express-сервер**
 const app = express();
