@@ -4,7 +4,6 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import winston from 'winston';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import nodemailer from 'nodemailer';
 
 import basePrompt from './prompts/basePrompt.js';
 import dialogStages from './prompts/dialogStages.js';
@@ -29,7 +28,7 @@ const config = {
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// Инициализация Telegram Bot
+// Иниц��ализация Telegram Bot
 const bot = new TelegramBot(config.TELEGRAM_TOKEN);
 bot.setWebHook(`${config.WEBHOOK_URL}/bot${config.TELEGRAM_TOKEN}`);
 
@@ -45,32 +44,6 @@ const logger = winston.createLogger({
     new winston.transports.File({ filename: 'logs.log', maxsize: 5 * 1024 * 1024, maxFiles: 5 }),
   ],
 });
-
-// Конфигурация почтового сервера
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
-
-// Функция отправки email
-async function sendEmail(to, subject, text) {
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to,
-    subject,
-    text,
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    logger.info(`Email отправлен на ${to}`);
-  } catch (error) {
-    logger.error(`Ошибка при отправке email: ${error.message}`);
-  }
-}
 
 // Глобальные переменные
 const userHistories = {};
@@ -99,6 +72,35 @@ async function sendToGemini(prompt, chatId) {
   }
 }
 
+// **Функция задержки**
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// **Функция имитации печати сообщений**
+async function sendTypingMessage(chatId, text) {
+  if (!text || text.trim() === '') return;
+
+  const typingDelay = 1000; // Задержка перед началом печати
+  const typingDuration = Math.min(text.length * 50, 5000); // Длительность печати (максимум 5 секунд)
+
+  await bot.sendChatAction(chatId, 'typing');
+  await delay(typingDelay);
+
+  const MAX_LENGTH = config.MAX_TELEGRAM_MESSAGE_LENGTH;
+  const messages = [];
+
+  for (let i = 0; i < text.length; i += MAX_LENGTH) {
+    messages.push(text.substring(i, i + MAX_LENGTH));
+  }
+
+  for (const message of messages) {
+    await bot.sendChatAction(chatId, 'typing');
+    await delay(typingDuration);
+    await bot.sendMessage(chatId, message);
+  }
+}
+
 // **Функция отправки сообщений**
 async function sendMessage(chatId, text) {
   if (!text || text.trim() === '') return;
@@ -122,22 +124,13 @@ bot.onText(/\/start/, async (msg) => {
   // Сбрасываем данные пользователя
   userHistories[chatId] = [];
   userRequestTimestamps[chatId] = { count: 0, timestamp: 0 };
-  userStages[chatId] = 1; // Устанавливаем этап на "Класс" (пропускаем "Приветствие")
+  userStages[chatId] = 0; // Устанавливаем начальный этап
 
   const firstName = msg.from.first_name || 'пользователь';
-  const welcomeMessage = `Добрый день! 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для пробных уроков, мне нужно задать пару вопросов.\n\nРасскажите, пожалуйста, какую цель вы хотите д��стичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
+  const welcomeMessage = `Добрый день! ${firstName} 👋 Меня зовут Виктория, я представляю онлайн-школу 'Rist'. Мы рады, что вы выбрали нас! Чтобы подобрать время для пробных уроков, мне нужно задать пару вопросов.\n\nРасскажите, пожалуйста, какую цель вы хотите достичь с помощью занятий? Например, устранить пробелы, повысить оценки или подготовиться к экзаменам. 🎯`;
 
   logger.info(`Обработка команды /start для chatId: ${chatId}`);
-  await sendMessage(chatId, welcomeMessage);
-
-  // Генерация ответа через Gemini для приветственного сообщения
-  const combinedPrompt = `${basePrompt}\n${welcomeMessage}`;
-  const botReply = await sendToGemini(combinedPrompt, chatId);
-  await sendMessage(chatId, botReply);
-
-  // Начинаем со следующего этапа после приветствия
-  const firstStage = dialogStages.questions[userStages[chatId]];
-  await sendMessage(chatId, firstStage.text);
+  await sendTypingMessage(chatId, welcomeMessage);
 });
 
 // **Обработка текстовых сообщений**
@@ -158,7 +151,7 @@ bot.on('message', async (msg) => {
 
     // Проверка валидации (если требуется)
     if (currentStage.validation && !currentStage.validation(userMessage)) {
-      await sendMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
+      await sendTypingMessage(chatId, currentStage.errorText || 'Ответ не подходит. Попробуйте снова.');
       return;
     }
 
@@ -166,32 +159,21 @@ bot.on('message', async (msg) => {
     userHistories[chatId] = userHistories[chatId] || [];
     userHistories[chatId].push({ stage: currentStage.stage, response: userMessage });
 
-    // Если текущий этап - Email, отправляем email
-    if (currentStage.stage === "Email") {
-      await sendEmail(userMessage, 'Спасибо за регистрацию!', 'Мы свяжемся с вами в ближайшее время.');
-    }
-
-    // Генерация ответа через Gemini
-    const combinedPrompt = `${basePrompt}\n${currentStage.text}\nПользователь: ${userMessage}`;
-    const botReply = await sendToGemini(combinedPrompt, chatId);
-    await sendMessage(chatId, botReply);
-
     // Переход к следующему этапу
     userStages[chatId]++;
     if (userStages[chatId] < dialogStages.questions.length) {
       const nextStage = dialogStages.questions[userStages[chatId]];
-      await sendMessage(chatId, nextStage.text);
+      await sendTypingMessage(chatId, nextStage.text);
     } else {
       // Завершение диалога
       delete userStages[chatId];
-      await sendMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
+      await sendTypingMessage(chatId, "Спасибо! Мы закончили диалог. Если у вас есть вопросы, пишите!");
     }
   } catch (error) {
     logger.error(`Ошибка при обработке сообщения от chatId ${chatId}: ${error.message}`);
-    await sendMessage(chatId, `Произошла ошибка: ${error.message}`);
+    await sendTypingMessage(chatId, `Произошла ошибка: ${error.message}`);
   }
 });
-
 
 // **Express-сервер**
 const app = express();
